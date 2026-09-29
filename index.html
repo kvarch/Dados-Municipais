@@ -439,7 +439,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 <footer class="statusbar">
   <div class="status-msg" id="status-msg" role="status" aria-live="polite">Pronto</div>
   <div class="status-cell" id="gi-status" title="Conexão com o Giraffe"><span class="giraffe-dot" id="gi-dot" aria-hidden="true"></span><span id="gi-label">Giraffe</span></div>
-  <div class="status-cell version">Beta - V04 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V05 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
@@ -451,7 +451,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* =====================================================================
-   KV Dados Municipais — V04
+   KV Dados Municipais — V05
    Leitura local de Shapefile / GeoJSON / KML / KMZ, reprojeção para
    WGS84, recorte por buffer do terreno e importação no Giraffe.
    Bibliotecas: Turf 6.5.0 (MIT), proj4 2.11.0 (MIT), shpjs 4.0.4 (MIT),
@@ -460,7 +460,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
    ===================================================================== */
 (() => {
 'use strict';
-const APP_VERSION = 'V04';
+const APP_VERSION = 'V05';
 const TAG = 'kvloc_';
 const RAW_LIMIT = 3000;          // teto de feições por camada no modo "desenhar no projeto"
 const $ = s => document.querySelector(s);
@@ -1253,7 +1253,7 @@ $('#btn-download').onclick = async () => {
    parâmetro — ou o inverso, detectado automaticamente.
    ===================================================================== */
 const PARAM_ROLES = [
-  ['zona', 'Zona (código)'], ['ca_min', 'CA mínimo'], ['ca_bas', 'CA básico'], ['ca_max', 'CA máximo'], ['ca', 'CA (único)'],
+  ['zona', 'Zona (código)'], ['cat', 'Categoria de uso'], ['ca_min', 'CA mínimo'], ['ca_bas', 'CA básico'], ['ca_max', 'CA máximo'], ['ca', 'CA (único)'],
   ['to', 'Taxa de ocupação'], ['tp', 'Taxa de permeabilidade'], ['gab', 'Gabarito / altura máxima'],
   ['rec_f', 'Recuo de frente'], ['rec_l', 'Recuo lateral'], ['rec_fu', 'Recuo de fundo'], ['rec_lf', 'Recuos laterais e fundo'],
   ['lote', 'Lote mínimo'], ['testada', 'Testada mínima'], ['cota', 'Cota parte / densidade'], ['usos', 'Usos permitidos'],
@@ -1263,7 +1263,8 @@ const ROLE_LABEL = Object.fromEntries(PARAM_ROLES);
 const NUMERIC_ROLES = new Set(['ca_min', 'ca_bas', 'ca_max', 'ca', 'to', 'tp', 'gab', 'rec_f', 'rec_l', 'rec_fu', 'rec_lf', 'lote', 'testada', 'cota']);
 const normH = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9<>=%]+/g, ' ').trim();
 const ROLE_RX = [
-  ['zona', /^(ZONAS?|ZONEAMENTO|SIGLAS?|ZONA DE USO|MACROZONAS?|CATEGORIA|COD(IGO)?( DA)? ZONA|ZONA SIGLA)\b/],
+  ['cat', /^(CATEGORIAS?( DE USOS?)?|GRUPOS? DE USOS?|CATEGORIA DE ATIVIDADE|ATIVIDADES?)$|^CATEGORIAS? DE USO/],
+  ['zona', /^(ZONAS?|ZONEAMENTO|SIGLAS?|ZONA DE USO|MACROZONAS?|COD(IGO)?( DA)? ZONA|ZONA SIGLA)\b/],
   ['testada', /TESTADA|FRENTE MIN/],
   ['lote', /LOTE MIN|AREA MIN|MODULO MIN|LOTE PADRAO/],
   ['ca_min', /(\bC ?A\b|COEF\w*|INDICE DE APROVEITAMENTO).*MIN/],
@@ -1383,23 +1384,30 @@ function parseParamSheet(ws, cfg = {}) {
   cols.filter(x => x.role === 'zona' && x !== zc).forEach(x => { x.role = 'outro'; });
   const start = start0;
   const rows = [], seen = new Set(), dups = [];
-  let started = false;
+  let started = false, lastZone = null, lastCat = null;
   const numCols = cols.filter(x => NUMERIC_ROLES.has(x.role));
+  const catC = cols.find(x => x.role === 'cat');
   for (let r = start; r < aoa.length; r++) {
     const row = aoa[r] || [];
     const zraw = zc ? row[zc.c] : null;
     const texts = row.filter(v => typeof v === 'string' && v.trim() && parseCell(v).v == null && !NA_RX.test(v.trim())).length;
     const nums = numCols.filter(x => { const p = parseCell(row[x.c]); return p.v != null; }).length;
     if (started && nums === 0 && texts >= 2 && !cfg.noStop) break;           // começou outra tabela na mesma aba
-    if (zraw == null || String(zraw).trim() === '' || nums === 0) continue;
-    const code = String(zraw).trim();
-    if (code.length > 30) continue;
+    if (nums === 0) continue;
+    let code = zraw == null ? '' : String(zraw).trim();
+    // tabelas por zona × categoria costumam deixar a zona só na 1ª linha (célula mesclada)
+    if (!code && catC && started && lastZone) code = lastZone;
+    if (!code || code.length > 30) continue;
     started = true;
-    if (seen.has(code)) { dups.push(code); continue; }
-    seen.add(code);
+    let cat = catC ? (row[catC.c] == null ? '' : String(row[catC.c]).replace(/\s+/g, ' ').trim()) : '';
+    if (catC && !cat && code === lastZone && lastCat) cat = lastCat;
+    const k = catC ? code + '||' + cat + '||' + r : code;
+    if (seen.has(k)) { dups.push(code); continue; }
+    seen.add(k); lastZone = code; lastCat = cat;
     const cells = {};
     cols.forEach(x => { cells[x.c] = parseCell(row[x.c]); });
-    rows.push({ code, cells, r });
+    if (catC) cells[catC.c] = { raw: cat, v: null, notes: [], text: true };
+    rows.push({ code, cat, cells, r });
   }
   // descarta colunas sem nenhum valor nas zonas (títulos soltos na linha do cabeçalho)
   for (let i = cols.length - 1; i >= 0; i--) if (cols[i] !== zc && rows.every(r => r.cells[cols[i].c].empty)) { rows.forEach(r => delete r.cells[cols[i].c]); cols.splice(i, 1); }
@@ -1410,12 +1418,31 @@ function parseParamSheet(ws, cfg = {}) {
     const m = /^\s*\(([a-z]{1,2}|\d{1,2})\)\s*[-–:]?\s*(.{8,})$/is.exec(v.trim());
     if (m && !notes[m[1].toLowerCase()]) notes[m[1].toLowerCase()] = m[2].replace(/^["“]|["”]$/g, '').trim();
   }));
-  const byCode = new Map(rows.map(x => [x.code, x]));
-  const keyCount = {}; rows.forEach(x => { const k = zoneKey(x.code); keyCount[k] = (keyCount[k] || 0) + 1; });
-  const byKey = new Map(rows.filter(x => keyCount[zoneKey(x.code)] === 1).map(x => [zoneKey(x.code), x]));
-  return { orient, headerRow: h, subHeader: subIsHeader, cols, rows, notes, byCode, byKey, dups, nRows: aoa.length };
+  const byCode = new Map(), byCodeAll = new Map(), codeOfKey = {};
+  rows.forEach(x => { if (!byCode.has(x.code)) byCode.set(x.code, x); if (!byCodeAll.has(x.code)) byCodeAll.set(x.code, []); byCodeAll.get(x.code).push(x); });
+  [...byCodeAll.keys()].forEach(c => { const k = zoneKey(c); codeOfKey[k] = codeOfKey[k] === undefined ? c : null; });
+  const byKey = new Map(Object.entries(codeOfKey).filter(([, c]) => c).map(([k, c]) => [k, byCode.get(c)]));
+  const byKeyAll = new Map(Object.entries(codeOfKey).filter(([, c]) => c).map(([k, c]) => [k, byCodeAll.get(c)]));
+  const zones = byCodeAll.size;
+  return { orient, headerRow: h, subHeader: subIsHeader, cols, rows, notes, byCode, byKey, byCodeAll, byKeyAll, hasCat: !!catC, zones, dups, nRows: aoa.length };
 }
 const findZoneRow = (P, v) => v == null ? null : (P.byCode.get(String(v).trim()) || P.byKey.get(zoneKey(v)) || null);
+const findZoneRows = (P, v) => v == null ? [] : (P.byCodeAll.get(String(v).trim()) || P.byKeyAll.get(zoneKey(v)) || []);
+/* Legenda de categorias em outra aba da mesma planilha (código + descrição) */
+function legendFromWorkbook(wb, skip) {
+  const map = {};
+  wb.SheetNames.forEach(sn => {
+    if (sn === skip) return;
+    const a = sheetMatrix(wb.Sheets[sn]);
+    a.forEach(r => {
+      const i = r.findIndex(v => typeof v === 'string' && /^[A-Z]{1,2}\s?\d{1,2}$/.test(v.trim()));
+      if (i < 0) return;
+      const d = r.slice(i + 1).filter(v => typeof v === 'string' && v.trim().length > 3).pop();
+      if (d) map[r[i].replace(/\s/g, '')] = d.trim();
+    });
+  });
+  return Object.keys(map).length >= 5 ? map : null;
+}
 
 /* ---------------- Estado e UI ---------------- */
 state.sheets = [];     // { id, doc, name, wb }
@@ -1484,12 +1511,13 @@ function selectSheet(id, keepCfg) {
   const saved = keepCfg || loadCfg(id) || {};
   const cfg = { headerRow: saved.headerRow, orient: saved.orient || 'auto', roles: saved.roles || null };
   const P = parseParamSheet(s.wb.Sheets[s.name], cfg);
+  if (!P.error) P.legend = legendFromWorkbook(s.wb, s.name);
   state.param = { sheetId: id, cfg, P, label: `${s.doc.name} · ${s.name}` };
   renderParamPicker();
   if (!P.error) {
     cfg.headerRow = P.headerRow; cfg.orient = cfg.orient || 'auto';
     if (saved.link) state.link = saved.link;
-    log('ok', `Parâmetros: ${P.rows.length} zona(s), ${P.cols.length} coluna(s), ${Object.keys(P.notes).length} nota(s) — ${state.param.label} (cabeçalho na linha ${P.headerRow + 1}${P.orient === 'cols' ? ', zonas nas colunas' : ''}).`);
+    log('ok', `Parâmetros: ${P.zones} zona(s)${P.hasCat ? ` × categorias de uso (${P.rows.length} linhas)` : ''}, ${P.cols.length} coluna(s), ${Object.keys(P.notes).length} nota(s) — ${state.param.label} (cabeçalho na linha ${P.headerRow + 1}${P.orient === 'cols' ? ', zonas nas colunas' : ''}).`);
     if (P.dups.length) log('warn', `Zonas repetidas na planilha (mantida a primeira): ${[...new Set(P.dups)].join(', ')}.`);
     if (!state.link || !state.layers.some(l => l.path === state.link.layerPath)) autoLink();
   } else log('warn', `Parâmetros: ${P.error}`);
@@ -1529,7 +1557,7 @@ function renderParams() {
   $('#par-cfg').hidden = !p; $('#par-cols-sec').hidden = !ok; $('#par-link-sec').hidden = !(ok || us); $('#par-zones-sec').hidden = !ok;
   $('#par-err').hidden = !(P && P.error); if (P && P.error) $('#par-err').textContent = P.error;
   $('#par-slots').hidden = !state.sheets.length;
-  $('#slot-idx').innerHTML = ok ? `<b>${esc(p.label)}</b> · ${P.rows.length} zona(s)` : '<span class="warn">não carregada — CA, TO e gabarito virão só do texto da camada, se houver</span>';
+  $('#slot-idx').innerHTML = ok ? `<b>${esc(p.label)}</b> · ${P.zones} zona(s)${P.hasCat ? ` × categorias (${P.rows.length} linhas)` : ''}` : '<span class="warn">não carregada — CA, TO e gabarito virão só do texto da camada, se houver</span>';
   $('#slot-uso').innerHTML = us ? `<b>${esc(us.label)}</b> · ${us.U.cats.length} categorias × ${us.U.zones.reduce((n, z) => n + z.codes.length, 0)} zonas` : '<span class="report-val-muted">não carregada</span>';
   if (ok || us) renderLinkUI();
   if (!p) return;
@@ -1537,7 +1565,7 @@ function renderParams() {
   $('#par-orient').value = p.cfg.orient || 'auto';
   if (!ok) return;
   renderLinkUI();
-  $('#par-sum-z').textContent = nf0.format(P.rows.length);
+  $('#par-sum-z').textContent = nf0.format(P.zones);
   $('#par-sum-c').textContent = nf0.format(P.cols.filter(c => c.role !== 'zona' && c.role !== 'ignorar').length);
   $('#par-sum-n').textContent = nf0.format(Object.keys(P.notes).length);
   const sample = P.rows[0];
@@ -1547,7 +1575,7 @@ function renderParams() {
       <label class="sr-only" for="role-${c.c}">Significado da coluna ${esc(c.label)}</label>
       <select id="role-${c.c}" data-role-col="${c.c}">${PARAM_ROLES.map(([r, t]) => `<option value="${r}"${r === c.role ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></li>`;
   }).join('');
-  $('#par-zones').innerHTML = P.rows.map(r => `<span class="chip" title="linha ${r.r + 1}">${esc(r.code)}</span>`).join('');
+  $('#par-zones').innerHTML = [...P.byCodeAll.entries()].map(([c, rs]) => `<span class="chip" title="linha ${rs[0].r + 1}${rs.length > 1 ? ` · ${rs.length} categorias` : ''}">${esc(c)}${rs.length > 1 ? ` <small>(${rs.length})</small>` : ''}</span>`).join('');
   $('#par-notes').innerHTML = Object.keys(P.notes).length ? Object.entries(P.notes).map(([k, v]) => `<dt>(${esc(k)})</dt><dd>${esc(v)}</dd>`).join('') : '<dt>—</dt><dd>Nenhuma nota no formato "(a) texto" encontrada.</dd>';
 }
 function renderLinkUI() {
@@ -1603,7 +1631,7 @@ function zoningForTerrain() {
     const props = L.features[fi].properties || {};
     const code = props[lk.field];
     const k = code == null || String(code).trim() === '' ? '(sem código)' : String(code).trim();
-    if (!byCode.has(k)) byCode.set(k, { code: k, row: P ? findZoneRow(P, code) : null, uz: us ? findUsesZone(us.U, code) : null, pct: 0, pctKnown: true, name: '', desc: '', txt: {} });
+    if (!byCode.has(k)) byCode.set(k, { code: k, row: P ? findZoneRow(P, code) : null, rows: P ? findZoneRows(P, code) : [], uz: us ? findUsesZone(us.U, code) : null, pct: 0, pctKnown: true, name: '', desc: '', txt: {} });
     const e = byCode.get(k), pc = L.cover[j];
     if (pc == null) e.pctKnown = false; else e.pct += pc;
     if (!e.name && tf.nameF && props[tf.nameF]) e.name = String(props[tf.nameF]).trim();
@@ -1817,6 +1845,53 @@ function buildReportModel() {
   return { t, bufferM: state.bufferM, items, pending, docs: state.docs.slice(), at: new Date(), zoning: zoningForTerrain() };
 }
 
+/* Índices por categoria de uso, com verificação do lote mínimo e estimativa */
+function renderCategoryTables(Z, E) {
+  const P = Z.P, area = Z.area;
+  const col = r => P.cols.find(c => c.role === r);
+  const cCat = col('cat'), cLote = col('lote'), cTest = col('testada'), cTO = col('to'), cCA = col('ca') || col('ca_max') || col('ca_bas');
+  const cRF = col('rec_f'), cRFu = col('rec_fu'), cRL = col('rec_l') || col('rec_lf'), cGab = col('gab');
+  const others = P.cols.filter(c => c.role === 'outro');
+  const cellTxt = (row, c, role) => { if (!c) return '—'; const x = row.cells[c.c]; if (!x || x.empty) return '—'; return fmtCell(x, role).replace(/ m²?$/, ''); };
+  let h = '';
+  E.forEach(e => {
+    const multi = Z.entries.length > 1;
+    const share = multi && e.pctKnown ? area * e.pct / 100 : area;
+    if (!e.rows.length) { h += `<div class="report-alert">Zona "${esc(e.code)}": não consta na tabela de índices ${esc(Z.label)}${/ZUE|ZP|ZPT|ZC5/.test(e.code) ? ' (na lei, sem tabela própria — regras por memorial ou legislação específica)' : ''}.</div>`; return; }
+    const lines = e.rows.map(row => {
+      const lote = cLote ? row.cells[cLote.c] : null;
+      const ok = lote && lote.v != null ? (area >= lote.v ? 'atende' : 'abaixo do mínimo') : '—';
+      return { row, ok, lote };
+    });
+    h += `<div class="report-section"><div class="report-section-title">Índices por categoria de uso — zona ${esc(e.code)}</div><div class="rtable-wrap"><table class="report-table">
+      <tr class="th"><td>Categoria</td><td class="n">Lote mín. (m²)</td><td class="n">Frente mín. (m)</td><td class="n">TO</td><td class="n">CA</td><td>Recuos F / Fu / L (m)</td><td class="n">Pav.</td><td>Terreno</td></tr>
+      ${lines.map(({ row, ok }) => `<tr><td>${esc(row.cat || '—')}</td><td class="n">${esc(cellTxt(row, cLote, 'x'))}</td><td class="n">${esc(cellTxt(row, cTest, 'x'))}</td><td class="n">${esc(cellTxt(row, cTO, 'to'))}</td><td class="n">${esc(cellTxt(row, cCA, 'x'))}</td><td>${esc([cRF, cRFu, cRL].map(c => cellTxt(row, c, 'x')).join(' / '))}</td><td class="n">${esc(cellTxt(row, cGab, 'x'))}</td><td class="${ok === 'atende' ? 'report-val-ok' : ok === '—' ? '' : 'report-val-muted'}">${ok}</td></tr>`).join('')}
+      </table></div>`;
+    const obs = [...new Set(e.rows.map(row => others.map(c => row.cells[c.c] && !row.cells[c.c].empty ? row.cells[c.c].raw : '').filter(Boolean).join(' · ')).filter(Boolean))];
+    if (obs.length) h += `<div class="report-note">Observação da tabela: ${esc(obs.join(' | '))}</div>`;
+    h += `</div>`;
+    // estimativa por categoria que o terreno atende
+    const est = lines.filter(l => l.ok !== 'abaixo do mínimo').map(({ row }) => {
+      const ca = cCA ? row.cells[cCA.c] : null, to = cTO ? row.cells[cTO.c] : null;
+      return { row, comp: ca && ca.v != null ? share * ca.v : null, proj: to && to.v != null ? share * fracOf(to) : null };
+    }).filter(x => x.comp != null || x.proj != null);
+    if (est.length) {
+      const best = est.reduce((b, x) => (x.comp ?? -1) > (b.comp ?? -1) ? x : b, est[0]);
+      h += `<div class="report-section"><div class="report-section-title">Estimativa para o terreno — zona ${esc(e.code)} (${nf0.format(share)} m²${share !== area ? `, ${nf1.format(e.pct)}% do terreno` : ''})</div><div class="rtable-wrap"><table class="report-table">
+        <tr class="th"><td>Categoria</td><td class="n">Área computável</td><td class="n">Projeção máxima</td></tr>
+        ${est.map(x => `<tr><td>${esc(x.row.cat)}</td><td class="n report-val-highlight">${x.comp != null ? nf0.format(x.comp) + ' m²' : '—'}</td><td class="n">${x.proj != null ? nf0.format(x.proj) + ' m²' : '—'}</td></tr>`).join('')}
+        </table></div>
+        <div class="report-note">Maior área computável entre as categorias que o terreno atende: ${best.comp != null ? nf0.format(best.comp) + ' m² (' + esc(best.row.cat) + ')' : '—'}. Lote mínimo verificado pela área total do terreno (${nf0.format(area)} m²).</div>`;
+    } else h += `<div class="report-section"><div class="report-section-title">Estimativa para o terreno — zona ${esc(e.code)}</div><div class="report-note">O terreno (${nf0.format(area)} m²) não atinge o lote mínimo de nenhuma categoria com índices numéricos nesta zona.</div>`;
+    // legenda das categorias citadas
+    if (P.legend) {
+      const codes = [...new Set(e.rows.flatMap(row => (row.cat.match(/[A-Z]{1,2}\s?\d{1,2}/g) || []).map(s => s.replace(/\s/g, ''))))].filter(c => P.legend[c]);
+      if (codes.length) h += `<div class="report-note">Categorias: ${esc(codes.map(c => `${c} ${P.legend[c]}`).join(' · '))}</div>`;
+    }
+    h += `<div class="report-note">Fonte: ${esc(Z.label)}. H = altura da edificação (ex.: 1+H/6; H/2>3 = H/2 com mínimo de 3 m). Estimativa sem incentivos, outorga ou condicionantes específicas.</div></div>`;
+  });
+  return h;
+}
 function renderZoningSummary(Z) {
   let h = '';
   if (!Z.entries.length) return `<div class="report-alert">O terreno não intercepta nenhum polígono da camada de zoneamento "${esc(Z.L.name)}".</div>`;
@@ -1829,10 +1904,13 @@ function renderZoningSummary(Z) {
     ${Z.entries.map(e => `<tr><td class="report-val-highlight">${esc(e.code)}</td><td>${esc(e.name || '—')}</td><td class="n">${multi ? cov(e) : '100%'}</td></tr>`).join('')}
     ${enq.map(r => `<tr><td class="k">${esc(r[0])}</td><td colspan="2">${esc(r[1])}</td></tr>`).join('')}
     </table></div>${enq.length ? '' : ''}<div class="report-note">Camada ${esc(Z.L.name)}, campo ${esc(Z.field)}.${multi ? ' Terreno em mais de uma zona: confira na lei a regra de enquadramento.' : ''}</div></div>`;
+  // 2a. tabela por zona × categoria de uso (ex.: Tabela A de Bertioga)
+  if (Z.P && Z.P.hasCat) { h += renderCategoryTables(Z, E); }
   // 2. índices urbanísticos (comparativo por zona)
-  const rows = SUMMARY_ROLES.map(([role, lab]) => [lab, E.map(e => zoneValue(Z, e, role))]).filter(r => r[1].some(Boolean));
+  const rows = (Z.P && Z.P.hasCat) ? [] : SUMMARY_ROLES.map(([role, lab]) => [lab, E.map(e => zoneValue(Z, e, role))]).filter(r => r[1].some(Boolean));
   const fromText = rows.some(r => r[1].some(v => v && v.src === 'texto'));
-  if (!Z.P) h += `<div class="report-alert">Nenhuma planilha de índices urbanísticos (CA, TO, gabarito, recuos) carregada${Z.U ? ' — a planilha recebida traz apenas os usos permitidos' : ''}. ${rows.length ? 'Os valores abaixo foram lidos da descrição da zona na camada de zoneamento.' : 'Adicione a tabela de índices da lei na aba Parâmetros.'}</div>`;
+  if (Z.P && Z.P.hasCat) { /* índices já apresentados por categoria */ }
+  else if (!Z.P) h += `<div class="report-alert">Nenhuma planilha de índices urbanísticos (CA, TO, gabarito, recuos) carregada${Z.U ? ' — a planilha recebida traz apenas os usos permitidos' : ''}. ${rows.length ? 'Os valores abaixo foram lidos da descrição da zona na camada de zoneamento.' : 'Adicione a tabela de índices da lei na aba Parâmetros.'}</div>`;
   if (rows.length) {
     h += `<div class="report-section"><div class="report-section-title">Parâmetros urbanísticos — resumo</div><div class="rtable-wrap"><table class="report-table">
       <tr class="th"><td>Parâmetro</td>${E.map(e => `<td>${esc(e.code)}</td>`).join('')}</tr>
@@ -1869,7 +1947,7 @@ function renderZoningSummary(Z) {
   // 4. descrição da zona
   E.forEach(e => { if (e.desc) h += `<div class="report-section"><div class="report-section-title">Descrição — zona ${esc(e.code)}</div><div class="report-note">${esc(e.desc.length > 900 ? e.desc.slice(0, 900) + '…' : e.desc)}</div></div>`; });
   // 5. detalhe completo da planilha de índices
-  if (Z.P) E.forEach(e => {
+  if (Z.P && !Z.P.hasCat) E.forEach(e => {
     if (!e.row) { h += `<div class="report-alert">Zona "${esc(e.code)}": não encontrada na planilha de índices ${esc(Z.label)}.</div>`; return; }
     const zp = zoneParamRows(Z, e);
     h += `<div class="report-section"><div class="report-section-title">Planilha de índices — zona ${esc(e.code)} (completa)</div><div class="rtable-wrap"><table class="report-table">
