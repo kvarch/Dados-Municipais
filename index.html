@@ -81,7 +81,7 @@ svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;stro
 .tab{
   flex:1;min-width:0;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   background:transparent;border:0;border-bottom:2px solid transparent;cursor:pointer;color:var(--md-sys-color-on-surface-variant);
-  font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:4px 2px;white-space:nowrap;position:relative;
+  font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:4px 2px;white-space:nowrap;position:relative;overflow:hidden;text-overflow:ellipsis;
 }
 .tab:hover{background:var(--md-sys-color-surface-container-low);color:var(--md-sys-color-on-surface)}
 .tab[aria-selected="true"]{color:var(--md-sys-color-primary);border-bottom-color:var(--md-sys-color-primary)}
@@ -213,6 +213,25 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 .report-note{padding:8px 12px;font-size:11.5px;color:var(--md-sys-color-on-surface-variant);border-top:1px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-low)}
 .report-footer{font-size:11px;color:var(--md-sys-color-on-surface-variant);text-align:center;padding:4px 0}
 
+/* ---------- Parâmetros ---------- */
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pcols{list-style:none;margin:0;padding:0;border-top:1px solid var(--md-sys-color-outline-variant)}
+.pcols li{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,46%);gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--md-sys-color-outline-variant)}
+.pc-l{display:grid;min-width:0}
+.pc-l b{font-weight:500;font-size:12.5px;overflow-wrap:anywhere;color:var(--md-sys-color-on-surface)}
+.pc-l small{font-size:11px;color:var(--md-sys-color-on-surface-variant);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcols select{font-size:12.5px;padding:0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{display:inline-block;padding:2px 8px;font-size:12px;border:1px solid var(--md-sys-color-outline-variant);background:var(--md-sys-color-surface-container-low);font-variant-numeric:tabular-nums}
+.pnotes{display:grid;grid-template-columns:40px minmax(0,1fr);gap:4px 8px;margin:0;font-size:12px}
+.pnotes dt{font-weight:600;color:var(--md-sys-color-primary)}
+.pnotes dd{margin:0;color:var(--md-sys-color-on-surface-variant)}
+.info.warn{color:var(--md-sys-color-error)}
+.slots{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;margin:12px 0 0;padding:10px 12px;font-size:12.5px;border-left:4px solid var(--md-sys-color-primary-container);background:var(--md-sys-color-surface-container-low)}
+.slots dt{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--md-sys-color-on-surface-variant);margin-top:4px}
+.slots dd{margin:0;overflow-wrap:anywhere}
+.slots .warn{color:var(--md-sys-color-error)}
+
 /* ---------- Log ---------- */
 .loglist{list-style:none;margin:0;padding:0;font-size:12px;font-variant-numeric:tabular-nums}
 .loglist li{display:grid;grid-template-columns:64px 44px minmax(0,1fr);gap:6px;padding:6px 0;border-bottom:1px solid var(--md-sys-color-outline-variant);overflow-wrap:anywhere}
@@ -246,7 +265,8 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 </header>
 
 <nav class="tabs" role="tablist" aria-label="Painéis do aplicativo">
-  <button class="tab" role="tab" id="tab-imp" aria-controls="panel-imp" aria-selected="true"><span data-icon="layers"></span>Importar dados</button>
+  <button class="tab" role="tab" id="tab-imp" aria-controls="panel-imp" aria-selected="true"><span data-icon="layers"></span>Importar</button>
+  <button class="tab" role="tab" id="tab-par" aria-controls="panel-par" aria-selected="false" tabindex="-1"><span data-icon="scale"></span>Parâmetros</button>
   <button class="tab" role="tab" id="tab-rep" aria-controls="panel-rep" aria-selected="false" tabindex="-1"><span data-icon="fileText"></span>Relatório</button>
   <button class="tab" role="tab" id="tab-log" aria-controls="panel-log" aria-selected="false" tabindex="-1"><span data-icon="list"></span>Log<span class="count" id="log-count" hidden>0</span></button>
 </nav>
@@ -343,6 +363,51 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
     </section>
   </section>
 
+  <!-- ================= PARÂMETROS (Pacote Municipal) ================= -->
+  <section class="panel" id="panel-par" role="tabpanel" aria-labelledby="tab-par" hidden>
+    <section class="section" aria-labelledby="h-par1">
+      <h2 id="h-par1"><span class="step" aria-hidden="true">1</span>Planilha de parâmetros</h2>
+      <p class="hint">Planilha da legislação (.xlsx, .xls, .ods ou .csv) com uma zona por linha e um parâmetro por coluna — ou o inverso. Planilhas da pasta do município entram aqui automaticamente.</p>
+      <div class="field"><label for="par-file">Planilha e aba</label><select id="par-file" disabled><option value="">Nenhuma planilha carregada</option></select></div>
+      <button class="btn block" id="btn-par-open"><span data-icon="sheet"></span>Escolher planilha</button>
+      <input type="file" id="in-par" hidden aria-hidden="true" accept=".xlsx,.xls,.ods,.csv">
+      <dl class="slots" id="par-slots" hidden aria-live="polite">
+        <dt>Índices urbanísticos</dt><dd id="slot-idx">—</dd>
+        <dt>Usos permitidos</dt><dd id="slot-uso">—</dd>
+      </dl>
+      <div id="par-cfg" hidden style="margin-top:12px">
+        <div class="row2">
+          <div class="field"><label for="par-header">Linha do cabeçalho</label><input type="number" id="par-header" min="1" step="1" inputmode="numeric"></div>
+          <div class="field"><label for="par-orient">Zonas estão nas</label><select id="par-orient"><option value="auto">Automático</option><option value="rows">Linhas</option><option value="cols">Colunas</option></select></div>
+        </div>
+        <div class="alert" id="par-err" role="alert" hidden></div>
+        <div class="summary" aria-live="polite">
+          <div><b id="par-sum-z">0</b><span>zonas</span></div>
+          <div><b id="par-sum-c">0</b><span>parâmetros</span></div>
+          <div><b id="par-sum-n">0</b><span>notas</span></div>
+        </div>
+      </div>
+    </section>
+    <section class="section" id="par-link-sec" aria-labelledby="h-par3" hidden>
+      <h2 id="h-par3"><span class="step" aria-hidden="true">2</span>Vínculo com o zoneamento</h2>
+      <p class="hint">Camada de polígonos do zoneamento e o campo que guarda o código da zona. O app sugere o par com mais códigos em comum com a planilha.</p>
+      <div class="field"><label for="par-layer">Camada de zoneamento</label><select id="par-layer"></select></div>
+      <div class="field"><label for="par-field">Campo com o código da zona</label><select id="par-field"></select></div>
+      <p class="info" id="par-link-info" aria-live="polite"></p>
+    </section>
+    <section class="section" id="par-cols-sec" aria-labelledby="h-par2" hidden>
+      <h2 id="h-par2"><span class="step" aria-hidden="true">3</span>Colunas reconhecidas</h2>
+      <p class="hint">Confira o significado de cada coluna. Os cálculos usam CA, TO e TP; as demais aparecem no relatório como estão na planilha.</p>
+      <ul class="pcols" id="par-cols"></ul>
+    </section>
+    <section class="section" id="par-zones-sec" aria-labelledby="h-par4" hidden>
+      <h2 id="h-par4">Zonas e notas lidas</h2>
+      <div class="chips" id="par-zones"></div>
+      <h3>Notas da legislação</h3>
+      <dl class="pnotes" id="par-notes"></dl>
+    </section>
+  </section>
+
   <!-- ================= RELATÓRIO ================= -->
   <section class="panel" id="panel-rep" role="tabpanel" aria-labelledby="tab-rep" hidden>
     <section class="section" aria-labelledby="h-rep">
@@ -374,7 +439,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 <footer class="statusbar">
   <div class="status-msg" id="status-msg" role="status" aria-live="polite">Pronto</div>
   <div class="status-cell" id="gi-status" title="Conexão com o Giraffe"><span class="giraffe-dot" id="gi-dot" aria-hidden="true"></span><span id="gi-label">Giraffe</span></div>
-  <div class="status-cell version">Beta - V02 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V04 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
@@ -383,18 +448,19 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 <script src="https://cdn.jsdelivr.net/npm/@tmcw/togeojson@5.8.1/dist/togeojson.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* =====================================================================
-   KV Dados Municipais — V02
+   KV Dados Municipais — V04
    Leitura local de Shapefile / GeoJSON / KML / KMZ, reprojeção para
    WGS84, recorte por buffer do terreno e importação no Giraffe.
    Bibliotecas: Turf 6.5.0 (MIT), proj4 2.11.0 (MIT), shpjs 4.0.4 (MIT),
-   @tmcw/togeojson 5.8.1 (BSD-2), JSZip 3.10.1 (MIT), jsPDF 2.5.1 (MIT).
+   @tmcw/togeojson 5.8.1 (BSD-2), JSZip 3.10.1 (MIT), jsPDF 2.5.1 (MIT), SheetJS 0.18.5 (Apache-2.0).
    Relatório/PDF: estrutura portada do GeoSampa Importer V143.
    ===================================================================== */
 (() => {
 'use strict';
-const APP_VERSION = 'V02';
+const APP_VERSION = 'V04';
 const TAG = 'kvloc_';
 const RAW_LIMIT = 3000;          // teto de feições por camada no modo "desenhar no projeto"
 const $ = s => document.querySelector(s);
@@ -462,6 +528,7 @@ function selectTab(tab, focus) {
   });
   if (tab.id === 'tab-log') { logUnseen = 0; $('#log-count').hidden = true; }
   if (tab.id === 'tab-rep') renderReport();
+  if (tab.id === 'tab-par') renderParams();
   if (focus) tab.focus();
 }
 tabs.forEach((t, i) => {
@@ -693,11 +760,13 @@ async function ingest(items) {
       await tick();
     }
     for (const d of docs) if (!state.docs.some(x => x.path === d.path)) state.docs.push(d);
+    await loadWorkbooks();
+    if (state.param && !state.param.P.error && (!state.link || !state.layers.some(l => l.path === state.link.layerPath))) autoLink();
     log('ok', `Leitura concluída em ${((performance.now() - t0) / 1000).toFixed(1)}s: ${added} camada(s), ${docs.length} documento(s)${ignored ? `, ${ignored} arquivo(s) auxiliar(es) ignorado(s)` : ''}.`);
     status(`${state.layers.length} camada(s) carregada(s).`);
   } finally {
     prog.hidden = true; state.busy = false;
-    renderAll(); setBusyUI();
+    renderAll(); setBusyUI(); renderParams();
     analyze();
   }
 }
@@ -812,7 +881,8 @@ drop.addEventListener('drop', async e => {
 document.addEventListener('dragover', e => e.preventDefault());
 document.addEventListener('drop', e => { if (!drop.contains(e.target)) e.preventDefault(); });
 $('#btn-clear').onclick = () => {
-  state.layers = []; state.docs = []; layerSeq = 0;
+  state.layers = []; state.docs = []; layerSeq = 0; state.sheets = []; state.param = null; state.link = null; state.uses = null;
+  renderParamPicker(); renderParams();
   log('info', 'Arquivos carregados foram limpos.'); status('Arquivos limpos.');
   renderAll();
 };
@@ -1178,6 +1248,531 @@ $('#btn-download').onclick = async () => {
 };
 
 /* =====================================================================
+   PACOTE MUNICIPAL — leitura genérica de planilha de parâmetros
+   (SheetJS 0.18.5, Apache-2.0). Uma linha por zona, uma coluna por
+   parâmetro — ou o inverso, detectado automaticamente.
+   ===================================================================== */
+const PARAM_ROLES = [
+  ['zona', 'Zona (código)'], ['ca_min', 'CA mínimo'], ['ca_bas', 'CA básico'], ['ca_max', 'CA máximo'], ['ca', 'CA (único)'],
+  ['to', 'Taxa de ocupação'], ['tp', 'Taxa de permeabilidade'], ['gab', 'Gabarito / altura máxima'],
+  ['rec_f', 'Recuo de frente'], ['rec_l', 'Recuo lateral'], ['rec_fu', 'Recuo de fundo'], ['rec_lf', 'Recuos laterais e fundo'],
+  ['lote', 'Lote mínimo'], ['testada', 'Testada mínima'], ['cota', 'Cota parte / densidade'], ['usos', 'Usos permitidos'],
+  ['outro', 'Outro (exibir no relatório)'], ['ignorar', 'Ignorar']
+];
+const ROLE_LABEL = Object.fromEntries(PARAM_ROLES);
+const NUMERIC_ROLES = new Set(['ca_min', 'ca_bas', 'ca_max', 'ca', 'to', 'tp', 'gab', 'rec_f', 'rec_l', 'rec_fu', 'rec_lf', 'lote', 'testada', 'cota']);
+const normH = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9<>=%]+/g, ' ').trim();
+const ROLE_RX = [
+  ['zona', /^(ZONAS?|ZONEAMENTO|SIGLAS?|ZONA DE USO|MACROZONAS?|CATEGORIA|COD(IGO)?( DA)? ZONA|ZONA SIGLA)\b/],
+  ['testada', /TESTADA|FRENTE MIN/],
+  ['lote', /LOTE MIN|AREA MIN|MODULO MIN|LOTE PADRAO/],
+  ['ca_min', /(\bC ?A\b|COEF\w*|INDICE DE APROVEITAMENTO).*MIN/],
+  ['ca_bas', /(\bC ?A\b|COEF\w*|INDICE DE APROVEITAMENTO).*BAS/],
+  ['ca_max', /(\bC ?A\b|COEF\w*|INDICE DE APROVEITAMENTO).*MAX/],
+  ['ca', /^(C ?A|COEF\w*( DE)? APROVEITAMENTO|INDICE DE APROVEITAMENTO|I ?A)\b/],
+  ['to', /\bT ?O\b|TAXA DE OCUPA|OCUPACAO/],
+  ['tp', /\bT ?P\b|PERMEAB/],
+  ['gab', /GABARITO|ALTURA|PAVIMENTOS|\bN DE PAV/],
+  ['rec_lf', /LATERA\w*.*FUNDO|FUNDO\w*.*LATERA/],
+  ['rec_f', /RECUO.*(FRENT|FRONT)|^FRENTE|FRONTAL/],
+  ['rec_l', /LATERA/],
+  ['rec_fu', /FUNDO/],
+  ['cota', /COTA PARTE|FRACAO IDEAL|DENSIDADE/],
+  ['usos', /\bUSOS?\b/]
+];
+function guessRole(label) { const H = normH(label); if (!H) return null; for (const [r, rx] of ROLE_RX) if (rx.test(H)) return r; return null; }
+const NOTE_RX = /\(([a-z]{1,2}|\d{1,2})\)/gi;
+const NA_RX = /^(-|–|—|NA|N\.?\s?A\.?|N\/A|NÃO SE APLICA|NAO SE APLICA|ISENTO|LIVRE|X)$/i;
+function parseCell(raw) {
+  if (raw == null || raw === '') return { raw: '', v: null, notes: [], empty: true };
+  if (typeof raw === 'number') return { raw: String(raw), v: raw, notes: [] };
+  const s = String(raw).trim(), notes = [];
+  const s2 = s.replace(NOTE_RX, (m, k) => { notes.push(k.toLowerCase()); return ' '; }).replace(/\s+/g, ' ').trim();
+  if (!s2 || NA_RX.test(s2)) return { raw: s, v: null, notes, na: true };
+  const m = /^(-?\d{1,3}(?:\.\d{3})+(?:,\d+)?|-?\d+(?:[.,]\d+)?)\s*(%|m²|m2|m|metros?|pav\w*)?$/i.exec(s2);
+  if (m) {
+    let n = m[1];
+    n = /,/.test(n) ? n.replace(/\./g, '').replace(',', '.') : (/^\-?\d{1,3}(\.\d{3})+$/.test(n) ? n.replace(/\./g, '') : n);
+    return { raw: s, v: parseFloat(n), notes, pct: m[2] === '%' };
+  }
+  return { raw: s, v: null, notes, text: true };
+}
+const nf3 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
+const fracOf = c => !c || c.v == null ? null : (c.pct || c.v > 1 ? c.v / 100 : c.v);
+function areaCond(label) {
+  const raw = String(label || '');
+  if (!/m\s?²|m2\b/i.test(raw)) return null;
+  const nums = [...raw.matchAll(/(\d{1,3}(?:[.\s]\d{3})+|\d+)\s*m\s?(?:²|2)/gi)].map(x => +x[1].replace(/[.\s]/g, ''));
+  if (!nums.length) return null;
+  const H = normH(raw);
+  if (/ENTRE/.test(H) && nums.length >= 2) return { min: nums[0], max: nums[1] };
+  if (/>|ACIMA|MAIOR|SUPERIOR|A PARTIR/.test(H)) return { min: nums[0] };
+  if (/ATE|<|MENOR|INFERIOR/.test(H)) return { max: nums[0] };
+  return null;
+}
+const condOk = (cond, area) => !cond || ((cond.min == null || area >= cond.min) && (cond.max == null || area <= cond.max));
+const condTxt = c => !c ? '' : c.min != null && c.max != null ? `lotes de ${nf0.format(c.min)} a ${nf0.format(c.max)} m²` : c.min != null ? `lotes a partir de ${nf0.format(c.min)} m²` : `lotes até ${nf0.format(c.max)} m²`;
+const zoneKey = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+/* Matriz da aba com células mescladas preenchidas */
+function sheetMatrix(ws) {
+  if (!ws || !ws['!ref']) return [];
+  const rg = XLSX.utils.decode_range(ws['!ref']);
+  const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null, blankrows: true });
+  const W = rg.e.c - rg.s.c + 1;
+  aoa.forEach(r => { while (r.length < W) r.push(null); });
+  (ws['!merges'] || []).forEach(m => {
+    const v = (aoa[m.s.r - rg.s.r] || [])[m.s.c - rg.s.c];
+    if (v == null) return;
+    for (let r = m.s.r; r <= m.e.r; r++) for (let c = m.s.c; c <= m.e.c; c++) {
+      const row = aoa[r - rg.s.r]; if (row && row[c - rg.s.c] == null) row[c - rg.s.c] = v;
+    }
+  });
+  return aoa;
+}
+const transpose = a => { const W = Math.max(0, ...a.map(r => r.length)); return Array.from({ length: W }, (_, c) => a.map(r => r[c] ?? null)); };
+function headerScore(row) { let s = 0, z = false; row.forEach(v => { const r = typeof v === 'string' ? guessRole(v) : null; if (r) { s++; if (r === 'zona') z = true; } }); return s + (z ? 2 : 0); }
+function bestHeader(aoa) {
+  let best = { row: -1, score: 0 };
+  const sc = aoa.slice(0, 25).map(headerScore);
+  sc.forEach((s, i) => { if (s > best.score) best = { row: i, score: s }; });
+  // cabeçalho em duas linhas (mesclado): fica com a primeira; a de baixo vira sub-cabeçalho
+  if (best.row > 0 && sc[best.row - 1] >= Math.max(2, best.score - 1)) best.row -= 1;
+  return best;
+}
+
+/* Interpreta uma aba: cabeçalho, colunas, zonas e notas "(a) texto…" */
+function parseParamSheet(ws, cfg = {}) {
+  let aoa = sheetMatrix(ws);
+  let orient = cfg.orient || 'auto';
+  if (orient === 'auto') {
+    const hr = bestHeader(aoa), hc = bestHeader(transpose(aoa));
+    orient = hc.score > hr.score ? 'cols' : 'rows';
+  }
+  if (orient === 'cols') aoa = transpose(aoa);
+  const hb = bestHeader(aoa);
+  const h = cfg.headerRow != null && cfg.headerRow >= 0 && cfg.headerRow < aoa.length ? cfg.headerRow : hb.row;
+  if (h < 0) return { error: 'Nenhuma linha de cabeçalho reconhecida (procuro termos como Zona, CA, TO, Gabarito, Recuo).', orient, aoa };
+  const head = aoa[h] || [];
+  // sub-cabeçalho: linha logo abaixo, sem números
+  const next = aoa[h + 1] || [];
+  const subIsHeader = next.some(v => v != null) && !next.some(v => typeof v === 'number' || (typeof v === 'string' && parseCell(v).v != null));
+  const W = Math.max(head.length, next.length);
+  const cols = [];
+  for (let c = 0; c < W; c++) {
+    const parts = [head[c], subIsHeader ? next[c] : null].filter(v => v != null && String(v).trim()).map(v => String(v).trim());
+    const label = [...new Set(parts)].join(' / ');
+    if (!label || /^\s*\(([a-z]{1,2}|\d{1,2})\)\s*\S/i.test(label)) continue;   // nota de rodapé não é coluna
+    const saved = cfg.roles && cfg.roles[c];
+    const notes = [...label.matchAll(NOTE_RX)].map(m => m[1].toLowerCase());
+    cols.push({ c, label, role: saved || guessRole(label) || 'outro', notes, cond: areaCond(label) });
+  }
+  let zc = cols.find(x => x.role === 'zona');
+  const start0 = h + (subIsHeader ? 2 : 1);
+  if (!zc) {
+    // sem cabeçalho "Zona": usa a coluna de textos curtos e únicos (ex.: "Parâmetro" numa tabela transposta)
+    let best = null;
+    cols.filter(x => !NUMERIC_ROLES.has(x.role)).forEach(x => {
+      const vals = aoa.slice(start0).map(r => r[x.c]).filter(v => typeof v === 'string' && v.trim() && v.trim().length <= 30 && parseCell(v).v == null && !NA_RX.test(v.trim()));
+      const sc = new Set(vals).size;
+      if (!best || sc > best.sc) best = { x, sc };
+    });
+    zc = best && best.sc ? best.x : cols[0];
+    if (zc) zc.role = 'zona';
+  }
+  cols.filter(x => x.role === 'zona' && x !== zc).forEach(x => { x.role = 'outro'; });
+  const start = start0;
+  const rows = [], seen = new Set(), dups = [];
+  let started = false;
+  const numCols = cols.filter(x => NUMERIC_ROLES.has(x.role));
+  for (let r = start; r < aoa.length; r++) {
+    const row = aoa[r] || [];
+    const zraw = zc ? row[zc.c] : null;
+    const texts = row.filter(v => typeof v === 'string' && v.trim() && parseCell(v).v == null && !NA_RX.test(v.trim())).length;
+    const nums = numCols.filter(x => { const p = parseCell(row[x.c]); return p.v != null; }).length;
+    if (started && nums === 0 && texts >= 2 && !cfg.noStop) break;           // começou outra tabela na mesma aba
+    if (zraw == null || String(zraw).trim() === '' || nums === 0) continue;
+    const code = String(zraw).trim();
+    if (code.length > 30) continue;
+    started = true;
+    if (seen.has(code)) { dups.push(code); continue; }
+    seen.add(code);
+    const cells = {};
+    cols.forEach(x => { cells[x.c] = parseCell(row[x.c]); });
+    rows.push({ code, cells, r });
+  }
+  // descarta colunas sem nenhum valor nas zonas (títulos soltos na linha do cabeçalho)
+  for (let i = cols.length - 1; i >= 0; i--) if (cols[i] !== zc && rows.every(r => r.cells[cols[i].c].empty)) { rows.forEach(r => delete r.cells[cols[i].c]); cols.splice(i, 1); }
+  // notas de rodapé em qualquer ponto da aba
+  const notes = {};
+  aoa.forEach(row => row.forEach(v => {
+    if (typeof v !== 'string') return;
+    const m = /^\s*\(([a-z]{1,2}|\d{1,2})\)\s*[-–:]?\s*(.{8,})$/is.exec(v.trim());
+    if (m && !notes[m[1].toLowerCase()]) notes[m[1].toLowerCase()] = m[2].replace(/^["“]|["”]$/g, '').trim();
+  }));
+  const byCode = new Map(rows.map(x => [x.code, x]));
+  const keyCount = {}; rows.forEach(x => { const k = zoneKey(x.code); keyCount[k] = (keyCount[k] || 0) + 1; });
+  const byKey = new Map(rows.filter(x => keyCount[zoneKey(x.code)] === 1).map(x => [zoneKey(x.code), x]));
+  return { orient, headerRow: h, subHeader: subIsHeader, cols, rows, notes, byCode, byKey, dups, nRows: aoa.length };
+}
+const findZoneRow = (P, v) => v == null ? null : (P.byCode.get(String(v).trim()) || P.byKey.get(zoneKey(v)) || null);
+
+/* ---------------- Estado e UI ---------------- */
+state.sheets = [];     // { id, doc, name, wb }
+state.param = null;    // { sheetId, cfg, P }
+state.link = null;     // { layerPath, field }
+state.uses = null;     // { sheetId, U, label } — matriz de usos permitidos
+const zoneMatch = v => (state.param && !state.param.P.error && findZoneRow(state.param.P, v)) || (state.uses && findUsesZone(state.uses.U, v)) || null;
+const zoneSource = () => (state.param && !state.param.P.error) || state.uses;
+const cfgKey = id => 'kv-dadosmun-param:' + id;
+function loadCfg(id) { try { return JSON.parse(localStorage.getItem(cfgKey(id)) || 'null'); } catch (e) { return null; } }
+function saveCfg() {
+  if (!state.param) return;
+  try { localStorage.setItem(cfgKey(state.param.sheetId), JSON.stringify({ ...state.param.cfg, link: state.link })); } catch (e) {}
+}
+async function loadWorkbooks() {
+  const pend = state.docs.filter(d => ['xlsx', 'xls', 'ods', 'csv'].includes(d.ext) && !d._wbDone);
+  for (const d of pend) {
+    d._wbDone = true;
+    try {
+      const wb = d.ext === 'csv' ? XLSX.read(await d.read('text'), { type: 'string', raw: false })
+        : XLSX.read(new Uint8Array(await d.read('arraybuffer')), { type: 'array' });
+      wb.SheetNames.forEach(sn => state.sheets.push({ id: d.path + '#' + sn, doc: d, name: sn, wb }));
+      log('ok', `Planilha ${d.name}: ${wb.SheetNames.length} aba(s).`);
+    } catch (e) { log('err', `Planilha ${d.name}: ${e.message}`); }
+  }
+  if (pend.length) {
+    renderParamPicker();
+    // classifica cada aba: matriz de usos (SIM/NÃO) ou tabela de índices
+    let best = null, bs = 0, bestU = null, bu = 0;
+    for (const s of state.sheets) {
+      const a = sheetMatrix(s.wb.Sheets[s.name]);
+      if (!a.length) { s.kind = 'vazia'; continue; }
+      if (isUsesSheet(a)) { s.kind = 'usos'; const sc = usesScore(a).yn; if (sc > bu) { bu = sc; bestU = s; } continue; }
+      s.kind = 'indices';
+      const sc = Math.max(bestHeader(a).score, bestHeader(transpose(a)).score);
+      if (sc > bs) { bs = sc; best = s; }
+    }
+    if (!state.uses && bestU) selectUses(bestU.id);
+    if (!state.param && best && bs >= 3) selectSheet(best.id);
+    if (!state.param) log('warn', 'Nenhuma planilha de índices urbanísticos (CA, TO, gabarito…) reconhecida. O relatório usará os índices citados na própria camada de zoneamento, quando houver.');
+    renderParamPicker();
+  }
+}
+function renderParamPicker() {
+  const sel = $('#par-file');
+  const kindTxt = s => s.kind === 'usos' ? ' (usos permitidos)' : s.kind === 'vazia' ? ' (vazia)' : '';
+  sel.innerHTML = state.sheets.length ? '<option value="">— escolha a planilha e a aba —</option>' + state.sheets.map(s => `<option value="${esc(s.id)}"${(state.param && state.param.sheetId === s.id) || (!state.param && state.uses && state.uses.sheetId === s.id) ? ' selected' : ''}>${esc(s.doc.name)} · ${esc(s.name)}${kindTxt(s)}</option>`).join('')
+    : '<option value="">Nenhuma planilha carregada</option>';
+  sel.disabled = !state.sheets.length;
+}
+function selectUses(id) {
+  const s = state.sheets.find(x => x.id === id); if (!s) return;
+  const hint = new Set(); state.layers.forEach(L => { if (/Pol/.test(L.geomType) && L.features.length < 5000) L.fields.forEach(f => L.features.slice(0, 500).forEach(x => { const v = (x.properties || {})[f]; if (typeof v === 'string' && v.length < 12) hint.add(zoneKey(v)); })); });
+  const U = parseUsesSheet(s.wb.Sheets[s.name], hint);
+  if (U.error) { log('warn', `Usos permitidos (${s.doc.name} · ${s.name}): ${U.error}`); return; }
+  state.uses = { sheetId: id, U, label: `${s.doc.name} · ${s.name}` };
+  const nz = U.zones.reduce((n, z) => n + z.codes.length, 0);
+  renderParamPicker();
+  log('ok', `Usos permitidos: ${U.cats.length} categoria(s) × ${nz} zona(s), ${new Set(U.cats.map(k => k.group)).size} grupo(s) — ${state.uses.label}.`);
+  if (!state.link || !state.layers.some(l => l.path === state.link.layerPath)) autoLink();
+  renderParams(); if (state.report) renderReport();
+}
+function selectSheet(id, keepCfg) {
+  const s = state.sheets.find(x => x.id === id);
+  if (!s) { state.param = null; renderParams(); return; }
+  const saved = keepCfg || loadCfg(id) || {};
+  const cfg = { headerRow: saved.headerRow, orient: saved.orient || 'auto', roles: saved.roles || null };
+  const P = parseParamSheet(s.wb.Sheets[s.name], cfg);
+  state.param = { sheetId: id, cfg, P, label: `${s.doc.name} · ${s.name}` };
+  renderParamPicker();
+  if (!P.error) {
+    cfg.headerRow = P.headerRow; cfg.orient = cfg.orient || 'auto';
+    if (saved.link) state.link = saved.link;
+    log('ok', `Parâmetros: ${P.rows.length} zona(s), ${P.cols.length} coluna(s), ${Object.keys(P.notes).length} nota(s) — ${state.param.label} (cabeçalho na linha ${P.headerRow + 1}${P.orient === 'cols' ? ', zonas nas colunas' : ''}).`);
+    if (P.dups.length) log('warn', `Zonas repetidas na planilha (mantida a primeira): ${[...new Set(P.dups)].join(', ')}.`);
+    if (!state.link || !state.layers.some(l => l.path === state.link.layerPath)) autoLink();
+  } else log('warn', `Parâmetros: ${P.error}`);
+  renderParams(); saveCfg();
+  if (state.report) renderReport();
+}
+/* Procura a camada de polígonos e o campo cujos valores mais coincidem com os códigos da planilha */
+function autoLink() {
+  if (!zoneSource()) return;
+  let best = null;
+  for (const L of state.layers) {
+    if (L.crsStatus === 'unknown' || !/Pol/.test(L.geomType)) continue;
+    for (const f of L.fields) {
+      const vals = new Set();
+      for (let i = 0; i < L.features.length && i < 3000; i++) { const v = (L.features[i].properties || {})[f]; if (v != null && String(v).trim()) vals.add(String(v).trim()); }
+      if (!vals.size || vals.size > 400) continue;
+      const hit = [...vals].filter(v => zoneMatch(v)).length;
+      if (!hit) continue;
+      const sc = hit + hit / vals.size;
+      if (!best || sc > best.sc) best = { sc, layerPath: L.path, field: f, hit, n: vals.size, name: L.name };
+    }
+  }
+  if (best) { state.link = { layerPath: best.layerPath, field: best.field }; log('ok', `Vínculo automático: camada "${best.name}", campo "${best.field}" — ${best.hit} de ${best.n} código(s) encontrados na planilha.`); saveCfg(); }
+}
+function linkStats() {
+  const lk = state.link;
+  const L = lk && state.layers.find(l => l.path === lk.layerPath);
+  if (!zoneSource() || !L) return null;
+  const vals = new Map();
+  L.features.forEach(f => { const v = (f.properties || {})[lk.field]; if (v != null && String(v).trim()) vals.set(String(v).trim(), (vals.get(String(v).trim()) || 0) + 1); });
+  const miss = [...vals.keys()].filter(v => !zoneMatch(v));
+  return { L, n: vals.size, hit: vals.size - miss.length, miss };
+}
+function renderParams() {
+  const p = state.param, P = p && p.P;
+  const ok = P && !P.error, us = state.uses;
+  $('#par-cfg').hidden = !p; $('#par-cols-sec').hidden = !ok; $('#par-link-sec').hidden = !(ok || us); $('#par-zones-sec').hidden = !ok;
+  $('#par-err').hidden = !(P && P.error); if (P && P.error) $('#par-err').textContent = P.error;
+  $('#par-slots').hidden = !state.sheets.length;
+  $('#slot-idx').innerHTML = ok ? `<b>${esc(p.label)}</b> · ${P.rows.length} zona(s)` : '<span class="warn">não carregada — CA, TO e gabarito virão só do texto da camada, se houver</span>';
+  $('#slot-uso').innerHTML = us ? `<b>${esc(us.label)}</b> · ${us.U.cats.length} categorias × ${us.U.zones.reduce((n, z) => n + z.codes.length, 0)} zonas` : '<span class="report-val-muted">não carregada</span>';
+  if (ok || us) renderLinkUI();
+  if (!p) return;
+  $('#par-header').value = (P.headerRow ?? p.cfg.headerRow ?? 0) + 1;
+  $('#par-orient').value = p.cfg.orient || 'auto';
+  if (!ok) return;
+  renderLinkUI();
+  $('#par-sum-z').textContent = nf0.format(P.rows.length);
+  $('#par-sum-c').textContent = nf0.format(P.cols.filter(c => c.role !== 'zona' && c.role !== 'ignorar').length);
+  $('#par-sum-n').textContent = nf0.format(Object.keys(P.notes).length);
+  const sample = P.rows[0];
+  $('#par-cols').innerHTML = P.cols.map(c => {
+    const ex = sample ? sample.cells[c.c] : null;
+    return `<li><div class="pc-l"><b>${esc(c.label)}</b><small>${ex && ex.raw ? 'ex.: ' + esc(ex.raw.slice(0, 40)) : 'sem valor na 1ª zona'}${c.cond ? ' · ' + esc(condTxt(c.cond)) : ''}</small></div>
+      <label class="sr-only" for="role-${c.c}">Significado da coluna ${esc(c.label)}</label>
+      <select id="role-${c.c}" data-role-col="${c.c}">${PARAM_ROLES.map(([r, t]) => `<option value="${r}"${r === c.role ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></li>`;
+  }).join('');
+  $('#par-zones').innerHTML = P.rows.map(r => `<span class="chip" title="linha ${r.r + 1}">${esc(r.code)}</span>`).join('');
+  $('#par-notes').innerHTML = Object.keys(P.notes).length ? Object.entries(P.notes).map(([k, v]) => `<dt>(${esc(k)})</dt><dd>${esc(v)}</dd>`).join('') : '<dt>—</dt><dd>Nenhuma nota no formato "(a) texto" encontrada.</dd>';
+}
+function renderLinkUI() {
+  const polys = state.layers.filter(l => l.crsStatus !== 'unknown' && /Pol/.test(l.geomType));
+  const lk = state.link;
+  $('#par-layer').innerHTML = '<option value="">— camada de zoneamento —</option>' + polys.map(l => `<option value="${esc(l.path)}"${lk && lk.layerPath === l.path ? ' selected' : ''}>${esc(l.name)}</option>`).join('');
+  const L = lk && polys.find(l => l.path === lk.layerPath);
+  $('#par-field').innerHTML = L ? L.fields.map(f => `<option value="${esc(f)}"${lk.field === f ? ' selected' : ''}>${esc(f)}</option>`).join('') : '<option value="">—</option>';
+  $('#par-field').disabled = !L;
+  const st = linkStats();
+  $('#par-link-info').innerHTML = !polys.length ? 'Carregue a camada de zoneamento (polígonos) na aba Importar dados.'
+    : !st ? 'Escolha a camada de zoneamento e o campo com o código da zona.'
+    : `<b>${st.hit}</b> de ${st.n} código(s) da camada encontrados na planilha.${st.miss.length ? ` Sem correspondência: ${st.miss.slice(0, 20).map(esc).join(', ')}${st.miss.length > 20 ? '…' : ''}.` : ''}`;
+  $('#par-link-info').className = 'info' + (st && st.miss.length ? ' warn' : '');
+}
+$('#par-file').onchange = e => { const s = state.sheets.find(x => x.id === e.target.value); if (!s) return; if (s.kind === 'usos') selectUses(s.id); else selectSheet(s.id); };
+$('#btn-par-open').onclick = () => $('#in-par').click();
+$('#in-par').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  const d = { path: f.name, name: f.name, ext: extOf(f.name), kind: DOC_EXT[extOf(f.name)] || 'Planilha', size: f.size, read: t => t === 'text' ? f.text() : f.arrayBuffer() };
+  state.docs = state.docs.filter(x => x.path !== d.path); state.sheets = state.sheets.filter(s => s.doc.path !== d.path);
+  state.docs.push(d); renderDocs(); renderSummary();
+  const before = state.sheets.length;
+  await loadWorkbooks();
+  const nw = state.sheets.slice(before).find(s => s.kind !== 'vazia');
+  if (nw) { if (nw.kind === 'usos') selectUses(nw.id); else selectSheet(nw.id); }
+});
+$('#par-header').addEventListener('change', e => { if (!state.param) return; const cfg = { ...state.param.cfg, headerRow: Math.max(0, (+e.target.value || 1) - 1), roles: null }; selectSheet(state.param.sheetId, cfg); });
+$('#par-orient').addEventListener('change', e => { if (!state.param) return; const cfg = { ...state.param.cfg, orient: e.target.value, headerRow: null, roles: null }; selectSheet(state.param.sheetId, cfg); });
+$('#par-cols').addEventListener('change', e => {
+  const c = e.target.dataset.roleCol; if (c == null || !state.param) return;
+  const roles = {}; state.param.P.cols.forEach(x => { roles[x.c] = x.c == c ? e.target.value : x.role; });
+  selectSheet(state.param.sheetId, { ...state.param.cfg, roles });
+});
+$('#par-layer').onchange = e => {
+  const L = state.layers.find(l => l.path === e.target.value);
+  if (!L) { state.link = null; renderParams(); return; }
+  // campo com mais coincidências nesta camada
+  let bf = L.fields[0], bh = -1;
+  L.fields.forEach(f => { const s = new Set(L.features.slice(0, 3000).map(x => (x.properties || {})[f]).filter(v => v != null)); const h = [...s].filter(v => zoneMatch(v)).length; if (h > bh) { bh = h; bf = f; } });
+  state.link = { layerPath: L.path, field: bf }; saveCfg(); renderParams(); if (state.report) renderReport();
+};
+$('#par-field').onchange = e => { if (!state.link) return; state.link.field = e.target.value; saveCfg(); renderParams(); if (state.report) renderReport(); };
+
+/* ---------------- Zoneamento do terreno (para o relatório) ---------------- */
+function zoningForTerrain() {
+  const p = state.param, P = p && !p.P.error ? p.P : null, lk = state.link, us = state.uses;
+  const L = lk && state.layers.find(l => l.path === lk.layerPath);
+  if (!zoneSource() || !L || !L.inTer || !state.terrainInfo) return null;
+  const tf = zoneTextFields(L, lk.field);
+  const byCode = new Map();
+  L.inTer.forEach((fi, j) => {
+    const props = L.features[fi].properties || {};
+    const code = props[lk.field];
+    const k = code == null || String(code).trim() === '' ? '(sem código)' : String(code).trim();
+    if (!byCode.has(k)) byCode.set(k, { code: k, row: P ? findZoneRow(P, code) : null, uz: us ? findUsesZone(us.U, code) : null, pct: 0, pctKnown: true, name: '', desc: '', txt: {} });
+    const e = byCode.get(k), pc = L.cover[j];
+    if (pc == null) e.pctKnown = false; else e.pct += pc;
+    if (!e.name && tf.nameF && props[tf.nameF]) e.name = String(props[tf.nameF]).trim();
+    if (!e.desc && tf.descF && props[tf.descF]) e.desc = String(props[tf.descF]).replace(/^"|"$/g, '').trim();
+  });
+  const entries = [...byCode.values()].sort((a, b) => b.pct - a.pct);
+  entries.forEach(e => { e.txt = paramsFromText(e.desc + ' ' + e.name); });
+  return { L, field: lk.field, P, label: p && P ? p.label : null, U: us && us.U, usesLabel: us && us.label, entries, area: state.terrainInfo.area };
+}
+/* Valor de um índice para a zona: planilha > texto da camada */
+function zoneValue(Z, e, role) {
+  const area = Z.area;
+  if (Z.P && e.row) {
+    const cs = Z.P.cols.filter(c => c.role === role || (role === 'ca_bas' || role === 'ca_max') && c.role === 'ca');
+    const c = cs.find(c => c.cond && condOk(c.cond, area) && e.row.cells[c.c].v != null) || cs.find(c => !c.cond && e.row.cells[c.c] && !e.row.cells[c.c].empty) || cs[0];
+    if (c && e.row.cells[c.c] && !e.row.cells[c.c].empty) return { cell: e.row.cells[c.c], src: 'planilha', col: c };
+  }
+  const tr = role === 'ca_bas' || role === 'ca_max' ? 'ca' : role;
+  if (e.txt[tr]) return { cell: e.txt[tr], src: 'texto' };
+  return null;
+}
+const fmtCell = (c, role) => {
+  if (!c) return '—';
+  if (c.na) return 'não se aplica';
+  if (c.v == null) return c.raw;
+  const n = ['to', 'tp'].includes(role) ? (c.pct || c.v > 1 ? nf3.format(c.v) + '%' : nf3.format(c.v)) : nf3.format(c.v);
+  const u = ['rec_f', 'rec_l', 'rec_fu', 'rec_lf', 'testada'].includes(role) ? ' m' : role === 'lote' ? ' m²' : '';
+  return n + u + (c.notes && c.notes.length ? ' ' + c.notes.map(x => `(${x})`).join('') : '');
+};
+const SUMMARY_ROLES = [['ca_bas', 'CA básico'], ['ca_max', 'CA máximo'], ['to', 'Taxa de ocupação'], ['tp', 'Taxa de permeabilidade'], ['gab', 'Gabarito / pavimentos'], ['rec_f', 'Recuo de frente'], ['rec_l', 'Recuo lateral'], ['rec_fu', 'Recuo de fundo'], ['rec_lf', 'Recuos laterais e fundo'], ['lote', 'Lote mínimo'], ['testada', 'Testada mínima']];
+/* Outras camadas de polígonos que enquadram o terreno (macrozona, setor, perímetros…) */
+function enquadramento(Z) {
+  const out = [];
+  state.layers.forEach(L => {
+    if (!L.inTer || !L.inTer.length || !/Pol/.test(L.geomType) || (Z && L === Z.L)) return;
+    const f = tableFields(L, L.inTer)[0]; if (!f) return;
+    const vals = [...new Set(L.inTer.map(i => (L.features[i].properties || {})[f]).filter(v => v != null && String(v).trim()).map(String))];
+    if (vals.length) out.push([L.name, vals.slice(0, 4).join(' · ') + (vals.length > 4 ? ` (+${vals.length - 4})` : '')]);
+  });
+  return out;
+}
+function zoneParamRows(Z, e) {
+  const P = Z.P, area = Z.area, rows = [], usedNotes = new Set();
+  const byRole = {};
+  P.cols.forEach(c => { if (c.role !== 'zona' && c.role !== 'ignorar') (byRole[c.role] = byRole[c.role] || []).push(c); });
+  const pick = role => { const cs = byRole[role] || []; return cs.find(c => c.cond && condOk(c.cond, area) && e.row.cells[c.c].v != null) || cs.find(c => !c.cond && e.row.cells[c.c].v != null) || cs[0] || null; };
+  const chosen = {};
+  ['ca_min', 'ca_bas', 'ca_max', 'ca', 'to', 'tp', 'gab'].forEach(r => { chosen[r] = pick(r); });
+  P.cols.forEach(c => {
+    if (c.role === 'zona' || c.role === 'ignorar') return;
+    const cell = e.row.cells[c.c];
+    if (!cell || cell.empty) return;
+    [...c.notes, ...cell.notes].forEach(n => usedNotes.add(n));
+    const multi = (byRole[c.role] || []).length > 1 || c.role === 'outro' || c.role === 'usos';
+    const label = c.role === 'outro' ? c.label : ROLE_LABEL[c.role] + (multi ? ` — ${c.label}` : '');
+    let val = cell.na ? 'não se aplica (' + cell.raw + ')' : cell.v != null ? nf3.format(cell.v) + (cell.pct ? '%' : '') + (cell.notes.length ? ' ' + cell.notes.map(n => `(${n})`).join('') : '') : cell.raw;
+    const aplic = c.cond ? (condOk(c.cond, area) ? ' · aplicável ao terreno' : ' · não aplicável ao terreno') : '';
+    rows.push([label + aplic, val]);
+  });
+  // estimativa para a parcela do terreno nesta zona
+  const share = e.pctKnown && Z.entries.length > 1 ? area * e.pct / 100 : area;
+  const g = r => chosen[r] ? e.row.cells[chosen[r].c] : null;
+  const caB = g('ca_bas') || g('ca'), caM = g('ca_max') || g('ca'), to = g('to'), tp = g('tp'), gab = g('gab');
+  const calc = [];
+  calc.push(['Área considerada', `${nf0.format(share)} m²${share !== area ? ` (${nf1.format(e.pct)}% do terreno)` : ''}`]);
+  if (caB && caB.v != null) calc.push([`Área computável básica (CA ${nf3.format(caB.v)})`, `${nf0.format(share * caB.v)} m²`]);
+  if (caM && caM.v != null) calc.push([`Área computável máxima (CA ${nf3.format(caM.v)})`, `${nf0.format(share * caM.v)} m²`]);
+  if (to && fracOf(to) != null) calc.push([`Projeção máxima (TO ${nf0.format(fracOf(to) * 100)}%${chosen.to.cond ? ', ' + condTxt(chosen.to.cond) : ''})`, `${nf0.format(share * fracOf(to))} m²`]);
+  if (tp && fracOf(tp) != null) calc.push([`Área permeável mínima (TP ${nf0.format(fracOf(tp) * 100)}%)`, `${nf0.format(share * fracOf(tp))} m²`]);
+  if (gab && gab.v != null) calc.push(['Gabarito / altura máxima', `${nf1.format(gab.v)}${/pav/i.test(chosen.gab.label) ? ' pavimentos' : ' m'}`]);
+  const notes = [...usedNotes].filter(n => P.notes[n]).map(n => `(${n}) ${P.notes[n]}`);
+  return { rows, calc, notes };
+}
+
+/* =====================================================================
+   MATRIZ DE USOS PERMITIDOS (categorias × zonas, SIM/NÃO) — V04
+   ===================================================================== */
+const YES_RX = /^(SIM|S|X|P|PERMITIDO|PERMITIDA|ADMITIDO|✓|✔)$/i;
+const NO_RX = /^(NAO|NÃO|N|NP|PROIBIDO|PROIBIDA|NAO PERMITIDO|NÃO PERMITIDO|-|–)$/i;
+const ynOf = v => { if (typeof v !== 'string') return null; const s = v.trim(); if (YES_RX.test(s)) return true; if (NO_RX.test(s)) return false; return null; };
+function usesScore(aoa) {
+  let yn = 0, filled = 0;
+  aoa.forEach(r => r.forEach(v => { if (v != null && String(v).trim()) { filled++; if (ynOf(v) !== null) yn++; } }));
+  return filled ? { yn, ratio: yn / filled } : { yn: 0, ratio: 0 };
+}
+const isUsesSheet = aoa => { const s = usesScore(aoa); return s.yn >= 20 && s.ratio >= 0.4; };
+/* Lê a matriz: descobre o eixo das zonas (cabeçalho acima do bloco SIM/NÃO ou coluna à esquerda) */
+function parseUsesSheet(ws, zoneHint) {
+  const base = sheetMatrix(ws);
+  const tryOrient = aoa => {
+    const colYN = {}; aoa.forEach(r => r.forEach((v, c) => { if (ynOf(v) !== null) colYN[c] = (colYN[c] || 0) + 1; }));
+    const dataCols = Object.keys(colYN).map(Number).filter(c => colYN[c] >= 3).sort((a, b) => a - b);
+    if (!dataCols.length) return null;
+    const firstDataRow = aoa.findIndex(r => dataCols.some(c => ynOf(r[c]) !== null));
+    let hr = -1;
+    for (let r = firstDataRow - 1; r >= 0 && r >= firstDataRow - 6; r--) {
+      const n = dataCols.filter(c => typeof aoa[r][c] === 'string' && aoa[r][c].trim() && ynOf(aoa[r][c]) === null).length;
+      if (n >= dataCols.length * 0.6) { hr = r; break; }
+    }
+    if (hr < 0) return null;
+    const zones = dataCols.map(c => ({ c, label: String(aoa[hr][c]).trim(), codes: String(aoa[hr][c]).split(/\s*[\/;]\s*|\s+e\s+/).map(s => s.trim()).filter(Boolean) }));
+    const catCol = Math.max(...[...Array(dataCols[0]).keys()].filter(c => aoa.slice(hr + 1).some(r => typeof r[c] === 'string' && r[c].trim())), -1);
+    const cats = [];
+    let group = null, groupParts = [], lastLetter = null;
+    for (let r = hr + 1; r < aoa.length; r++) {
+      const row = aoa[r];
+      if (!dataCols.some(c => ynOf(row[c]) !== null)) continue;
+      const code = catCol >= 0 && row[catCol] != null ? String(row[catCol]).trim() : '';
+      if (!code) continue;
+      const letter = (/^[A-Za-z]+/.exec(code.replace(/\s/g, '')) || [''])[0].toUpperCase();
+      if (letter !== lastLetter) { groupParts = []; lastLetter = letter; }
+      // rótulos do grupo nas colunas à esquerda (ex.: "INSTITUCIO-" + "NAL" + "( I )")
+      for (let c = 0; c < catCol; c++) { const t = row[c]; if (typeof t === 'string' && t.trim() && !/^\(\s*\w+\s*\)$/.test(t.trim())) groupParts.push(t.trim()); }
+      const gname = groupParts.reduce((s, p) => s ? (s.endsWith('-') ? s.slice(0, -1) + p : s + ' ' + p) : p, '') || letter;
+      const vals = {}; zones.forEach(z => { vals[z.c] = ynOf(row[z.c]); });
+      cats.push({ code: code.replace(/\s+/g, ''), label: code, letter, groupName: gname, vals, r });
+    }
+    // corrige o nome do grupo para todas as categorias da mesma letra (o rótulo pode aparecer no meio do grupo)
+    const gByLetter = {}; cats.forEach(k => { if (!gByLetter[k.letter] || k.groupName.length > gByLetter[k.letter].length) gByLetter[k.letter] = k.groupName; });
+    cats.forEach(k => { k.group = gByLetter[k.letter]; });
+    const zScore = zones.reduce((s, z) => s + z.codes.filter(x => /^Z/i.test(x) || (zoneHint && zoneHint.has(zoneKey(x)))).length, 0);
+    return { zones, cats, headerRow: hr, catCol, zScore };
+  };
+  const a = tryOrient(base), b = tryOrient(transpose(base));
+  const U = !a ? b : !b ? a : (b.zScore > a.zScore ? b : a);
+  if (!U || !U.cats.length) return { error: 'Não encontrei a tabela SIM/NÃO de categorias por zona.' };
+  U.byKey = new Map(); U.zones.forEach(z => z.codes.forEach(code => U.byKey.set(zoneKey(code), z)));
+  return U;
+}
+const findUsesZone = (U, v) => v == null ? null : U.byKey.get(zoneKey(v)) || null;
+function usesForZone(U, z) {
+  const groups = new Map();
+  U.cats.forEach(k => {
+    if (!groups.has(k.group)) groups.set(k.group, { name: k.group, yes: [], no: [] });
+    const v = k.vals[z.c];
+    if (v === true) groups.get(k.group).yes.push(k.code); else if (v === false) groups.get(k.group).no.push(k.code);
+  });
+  return [...groups.values()];
+}
+
+/* Índices citados no texto da própria camada (ex.: descrição da ZM2) */
+const TEXT_PARAMS = [
+  ['ca', /(?:indice|coeficiente) de aproveitamento(?: maximo| basico)?\s*(?:=|:|de|e)?\s*(\d+(?:[.,]\d+)?)/],
+  ['to', /taxa de ocupacao\s*(?:=|:|de|e)?\s*(\d+(?:[.,]\d+)?)\s*(%)?/],
+  ['tp', /taxa de permeabilidade\s*(?:=|:|de|e)?\s*(\d+(?:[.,]\d+)?)\s*(%)?/],
+  ['gab', /(?:numero de pavimentos|gabarito)\s*(?:=|:|de|e)?\s*(\d+(?:[.,]\d+)?)/],
+  ['rec_f', /recuo (?:de )?frente\s*(?:=|:|de|e)?\s*(\d+(?:[.,]\d+)?)/],
+  ['rec_fu', /recuo (?:de )?fundo\s*(?:=|:|de|e)?\s*(\d+(?:[.,]\d+)?)/],
+  ['rec_l', /recuos? (?:lateral|laterais)\s*(?:=|:|de|e)?\s*(\d+(?:[.,]\d+)?)/],
+  ['lote', /area minima (?:de terreno|do lote|de lote)\s*(?:=|:|de|e)?\s*(\d{1,3}(?:\.\d{3})+|\d+(?:[.,]\d+)?)/],
+  ['testada', /(?:frente|testada) minima\s*(?:=|:|de|e)?\s*(\d+(?:[.,]\d+)?)/]
+];
+function paramsFromText(txt) {
+  const T = String(txt || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const out = {};
+  TEXT_PARAMS.forEach(([role, rx]) => { const m = rx.exec(T); if (m) { const c = parseCell(m[1] + (m[2] || '')); if (c.v != null) out[role] = c; } });
+  return out;
+}
+/* Campo "nome/legenda" e "descrição" da camada de zoneamento */
+function zoneTextFields(L, field) {
+  const fs = L.fields.filter(f => f !== field);
+  const avgLen = f => { let s = 0, n = 0; L.features.slice(0, 200).forEach(x => { const v = (x.properties || {})[f]; if (typeof v === 'string' && v.trim()) { s += v.length; n++; } }); return n ? s / n : 0; };
+  const lens = fs.map(f => [f, avgLen(f)]).filter(x => x[1] > 0);
+  const desc = lens.filter(x => x[1] >= 60).sort((a, b) => b[1] - a[1])[0];
+  const name = lens.filter(x => x[1] > 3 && x[1] < 60 && /legenda|nome|name|denomina|zona|descr/i.test(x[0])).sort((a, b) => b[1] - a[1])[0] || lens.filter(x => x[1] > 3 && x[1] < 60).sort((a, b) => b[1] - a[1])[0];
+  return { nameF: name && name[0], descF: desc && desc[0] };
+}
+
+/* =====================================================================
    RELATÓRIO — estrutura e vocabulário do GeoSampa Importer
    (INCIDE NO TERRENO · nas proximidades · sem incidência).
    O DOM usa as classes report-* lidas pelo conversor HTML → PDF.
@@ -1219,9 +1814,71 @@ function buildReportModel() {
     const proxD = prox.slice(0, 30).map(i => ({ i, d: distFromTerrain(L.features[i]) })).sort((a, b) => (a.d ?? 1e9) - (b.d ?? 1e9));
     return { L, fields, prox, proxD, sit: situacao(L), grupo: groupOf(L) };
   }).sort((a, b) => (b.L.inTer.length > 0) - (a.L.inTer.length > 0) || (b.L.inBuf.length > 0) - (a.L.inBuf.length > 0) || a.L.name.localeCompare(b.L.name));
-  return { t, bufferM: state.bufferM, items, pending, docs: state.docs.slice(), at: new Date() };
+  return { t, bufferM: state.bufferM, items, pending, docs: state.docs.slice(), at: new Date(), zoning: zoningForTerrain() };
 }
 
+function renderZoningSummary(Z) {
+  let h = '';
+  if (!Z.entries.length) return `<div class="report-alert">O terreno não intercepta nenhum polígono da camada de zoneamento "${esc(Z.L.name)}".</div>`;
+  const multi = Z.entries.length > 1, E = Z.entries.slice(0, 4);
+  const cov = e => e.pctKnown ? nf1.format(e.pct) + '%' : '—';
+  // 1. zonas incidentes
+  const enq = enquadramento(Z);
+  h += `<div class="report-section"><div class="report-section-title">Resumo do zoneamento incidente</div><div class="rtable-wrap"><table class="report-table">
+    <tr class="th"><td>Zona</td><td>Denominação</td><td class="n">Cobertura</td></tr>
+    ${Z.entries.map(e => `<tr><td class="report-val-highlight">${esc(e.code)}</td><td>${esc(e.name || '—')}</td><td class="n">${multi ? cov(e) : '100%'}</td></tr>`).join('')}
+    ${enq.map(r => `<tr><td class="k">${esc(r[0])}</td><td colspan="2">${esc(r[1])}</td></tr>`).join('')}
+    </table></div>${enq.length ? '' : ''}<div class="report-note">Camada ${esc(Z.L.name)}, campo ${esc(Z.field)}.${multi ? ' Terreno em mais de uma zona: confira na lei a regra de enquadramento.' : ''}</div></div>`;
+  // 2. índices urbanísticos (comparativo por zona)
+  const rows = SUMMARY_ROLES.map(([role, lab]) => [lab, E.map(e => zoneValue(Z, e, role))]).filter(r => r[1].some(Boolean));
+  const fromText = rows.some(r => r[1].some(v => v && v.src === 'texto'));
+  if (!Z.P) h += `<div class="report-alert">Nenhuma planilha de índices urbanísticos (CA, TO, gabarito, recuos) carregada${Z.U ? ' — a planilha recebida traz apenas os usos permitidos' : ''}. ${rows.length ? 'Os valores abaixo foram lidos da descrição da zona na camada de zoneamento.' : 'Adicione a tabela de índices da lei na aba Parâmetros.'}</div>`;
+  if (rows.length) {
+    h += `<div class="report-section"><div class="report-section-title">Parâmetros urbanísticos — resumo</div><div class="rtable-wrap"><table class="report-table">
+      <tr class="th"><td>Parâmetro</td>${E.map(e => `<td>${esc(e.code)}</td>`).join('')}</tr>
+      ${rows.map(([lab, vs]) => `<tr><td class="k">${esc(lab)}</td>${vs.map((v, i) => `<td>${v ? esc(fmtCell(v.cell, SUMMARY_ROLES.find(x => x[1] === lab)[0])) + (v.src === 'texto' && Z.P ? ' *' : '') : '—'}</td>`).join('')}</tr>`).join('')}
+      </table></div>${fromText ? `<div class="report-note">${Z.P ? '* ' : ''}Valores extraídos do texto da descrição da zona (camada ${esc(Z.L.name)}); confira na lei.</div>` : ''}${Z.P ? `<div class="report-note">Fonte: ${esc(Z.label)}.</div>` : ''}</div>`;
+    // estimativa
+    const calc = E.map(e => {
+      const share = multi && e.pctKnown ? Z.area * e.pct / 100 : Z.area;
+      const g = r => { const v = zoneValue(Z, e, r); return v && v.cell.v != null ? v.cell : null; };
+      const caB = g('ca_bas'), caM = g('ca_max'), to = g('to'), tp = g('tp');
+      return { e, share, caB: caB && share * caB.v, caM: caM && share * caM.v, to: to && share * fracOf(to), tp: tp && share * fracOf(tp) };
+    });
+    if (calc.some(c => c.caB || c.caM || c.to)) {
+      const f = v => v == null ? '—' : nf0.format(v) + ' m²';
+      h += `<div class="report-section"><div class="report-section-title">Estimativa para o terreno</div><div class="rtable-wrap"><table class="report-table">
+        <tr class="th"><td>Item</td>${calc.map(c => `<td>${esc(c.e.code)}</td>`).join('')}</tr>
+        <tr><td class="k">Área considerada</td>${calc.map(c => `<td>${f(c.share)}</td>`).join('')}</tr>
+        <tr><td class="k">Área computável básica</td>${calc.map(c => `<td class="report-val-highlight">${f(c.caB)}</td>`).join('')}</tr>
+        <tr><td class="k">Área computável máxima</td>${calc.map(c => `<td class="report-val-highlight">${f(c.caM)}</td>`).join('')}</tr>
+        <tr><td class="k">Projeção máxima (TO)</td>${calc.map(c => `<td class="report-val-highlight">${f(c.to)}</td>`).join('')}</tr>
+        <tr><td class="k">Área permeável mínima (TP)</td>${calc.map(c => `<td>${f(c.tp)}</td>`).join('')}</tr>
+        </table></div><div class="report-note">Estimativa sem incentivos, outorga onerosa ou condicionantes específicas. Quando o CA não distingue básico e máximo, o mesmo valor é usado nos dois.</div></div>`;
+    }
+  }
+  // 3. usos permitidos
+  if (Z.U) E.forEach(e => {
+    if (!e.uz) { h += `<div class="report-alert">Usos permitidos: a zona "${esc(e.code)}" não consta na planilha ${esc(Z.usesLabel)}.</div>`; return; }
+    const gs = usesForZone(Z.U, e.uz);
+    h += `<div class="report-section"><div class="report-section-title">Usos permitidos — zona ${esc(e.code)}${e.uz.codes.length > 1 ? ` (coluna ${esc(e.uz.label)})` : ''}</div><div class="rtable-wrap"><table class="report-table">
+      <tr class="th"><td>Categoria</td><td>Permitidos</td><td>Não permitidos</td></tr>
+      ${gs.map(g => `<tr><td class="k">${esc(g.name)}</td><td class="report-val-ok">${esc(g.yes.join(', ') || '—')}</td><td class="report-val-muted">${esc(g.no.join(', ') || '—')}</td></tr>`).join('')}
+      </table></div><div class="report-note">Fonte: ${esc(Z.usesLabel)}. ${gs.reduce((n, g) => n + g.yes.length, 0)} categoria(s) permitida(s) de ${Z.U.cats.length}.</div></div>`;
+  });
+  // 4. descrição da zona
+  E.forEach(e => { if (e.desc) h += `<div class="report-section"><div class="report-section-title">Descrição — zona ${esc(e.code)}</div><div class="report-note">${esc(e.desc.length > 900 ? e.desc.slice(0, 900) + '…' : e.desc)}</div></div>`; });
+  // 5. detalhe completo da planilha de índices
+  if (Z.P) E.forEach(e => {
+    if (!e.row) { h += `<div class="report-alert">Zona "${esc(e.code)}": não encontrada na planilha de índices ${esc(Z.label)}.</div>`; return; }
+    const zp = zoneParamRows(Z, e);
+    h += `<div class="report-section"><div class="report-section-title">Planilha de índices — zona ${esc(e.code)} (completa)</div><div class="rtable-wrap"><table class="report-table">
+      <tr class="th"><td>Parâmetro</td><td>Valor</td></tr>
+      ${zp.rows.map(r => `<tr><td class="k">${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')}
+      </table></div>${zp.notes.map(n => `<div class="report-note">${esc(n)}</div>`).join('')}<div class="report-note">Fonte: ${esc(Z.label)} (linha ${e.row.r + 1}).</div></div>`;
+  });
+  return h;
+}
 function renderReport() {
   const el = $('#reportContent'), empty = $('#reportEmpty');
   if (!state.layers.length || !state.terrain) {
@@ -1233,10 +1890,13 @@ function renderReport() {
   const t = M.t, inc = M.items.filter(x => x.L.inTer.length), prox = M.items.filter(x => !x.L.inTer.length && x.L.inBuf.length);
   const sitCls = s => s === 'INCIDE NO TERRENO' ? 'report-val-ok' : s === 'nas proximidades' ? 'report-val-highlight' : 'report-val-muted';
   let h = `<div class="report-header">
-      <div class="report-terrain-pill">Terreno de ${nf0.format(t.area)} m² · buffer de ${nf0.format(M.bufferM)} m</div>
+      <div class="report-terrain-pill">Terreno de ${nf0.format(t.area)} m²${M.zoning && M.zoning.entries.length ? ' · ' + esc(M.zoning.entries.map(e => e.code).join(' / ')) : ''} · buffer de ${nf0.format(M.bufferM)} m</div>
       <div class="report-lei">Centroide ${nf5.format(t.c[1])}, ${nf5.format(t.c[0])} · fuso UTM ${t.zone}S · ${M.items.length} camada(s) analisada(s) · ${inc.length} incide(m) no terreno · ${prox.length} nas proximidades</div>
       ${M.docs.length ? `<div class="report-tags">${M.docs.map(d => `<span class="report-ou-tag">${esc(d.kind)} · ${esc(d.name)}</span>`).join('')}</div>` : ''}
     </div>`;
+  const Z = M.zoning;
+  if (Z) h += renderZoningSummary(Z);
+  else if (zoneSource()) h += `<div class="report-alert">Planilha da legislação carregada, mas sem vínculo com a camada de zoneamento — defina a camada e o campo na aba Parâmetros.</div>`;
   if (M.pending.length) h += `<div class="report-alert">${M.pending.length} camada(s) sem sistema de coordenadas não foram analisadas: ${esc(M.pending.map(l => l.name).join(', '))}. Defina o EPSG na aba Importar dados.</div>`;
   h += `<div class="report-section"><div class="report-section-title">Camadas com interferência</div><div class="rtable-wrap"><table class="report-table">
       <tr class="th"><td>Camada</td><td>Situação</td><td class="n">Terreno</td><td class="n">Buffer</td></tr>
@@ -1262,7 +1922,7 @@ function renderReport() {
     h += `<div class="report-section"><div class="report-section-title">Legislação e documentos de referência</div><div class="rtable-wrap"><table class="report-table">
       <tr class="th"><td>Documento</td><td>Tipo</td></tr>
       ${M.docs.map(d => `<tr><td>${esc(d.path)}</td><td>${esc(d.kind)}</td></tr>`).join('')}
-      </table></div><div class="report-note">Documentos encontrados na pasta do município. A leitura dos parâmetros urbanísticos virá do Pacote Municipal.</div></div>`;
+      </table></div><div class="report-note">Documentos encontrados na pasta do município. Planilhas reconhecidas na aba Parâmetros alimentam o resumo do zoneamento.</div></div>`;
   }
   h += `<div class="report-footer">KV Dados Municipais ${APP_VERSION} · gerado em ${M.at.toLocaleString('pt-BR')}</div>`;
   el.innerHTML = h; el.hidden = false; empty.hidden = true;
@@ -1675,7 +2335,8 @@ $('#btn-pdf').onclick = async () => {
     if (items.length) { pdf.addPage('a4', 'portrait'); _addCamadaCardsToPDF(pdf, items, now); }
     _addResumoTodasCamadas(pdf, M, now);
     _pageFooters(pdf);
-    const fn = `KV_Relatorio_Municipal_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const zs = M.zoning && M.zoning.entries.length ? M.zoning.entries.map(e => slug(e.code)).join('-') + '_' : '';
+    const fn = `KV_Relatorio_Municipal_${zs}${new Date().toISOString().slice(0, 10)}.pdf`;
     pdf.save(fn);
     const msg = `PDF exportado em ${((performance.now() - t0) / 1000).toFixed(1)}s: ${fn} (${pdf.getNumberOfPages()} páginas).`;
     log('ok', msg); status(msg); $('#rep-info').textContent = msg;
