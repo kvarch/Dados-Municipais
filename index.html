@@ -439,7 +439,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 <footer class="statusbar">
   <div class="status-msg" id="status-msg" role="status" aria-live="polite">Pronto</div>
   <div class="status-cell" id="gi-status" title="Conexão com o Giraffe"><span class="giraffe-dot" id="gi-dot" aria-hidden="true"></span><span id="gi-label">Giraffe</span></div>
-  <div class="status-cell version">Beta - V05 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V06 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
@@ -451,7 +451,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* =====================================================================
-   KV Dados Municipais — V05
+   KV Dados Municipais — V06
    Leitura local de Shapefile / GeoJSON / KML / KMZ, reprojeção para
    WGS84, recorte por buffer do terreno e importação no Giraffe.
    Bibliotecas: Turf 6.5.0 (MIT), proj4 2.11.0 (MIT), shpjs 4.0.4 (MIT),
@@ -460,7 +460,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
    ===================================================================== */
 (() => {
 'use strict';
-const APP_VERSION = 'V05';
+const APP_VERSION = 'V06';
 const TAG = 'kvloc_';
 const RAW_LIMIT = 3000;          // teto de feições por camada no modo "desenhar no projeto"
 const $ = s => document.querySelector(s);
@@ -1290,6 +1290,9 @@ function parseCell(raw) {
   const s = String(raw).trim(), notes = [];
   const s2 = s.replace(NOTE_RX, (m, k) => { notes.push(k.toLowerCase()); return ' '; }).replace(/\s+/g, ' ').trim();
   if (!s2 || NA_RX.test(s2)) return { raw: s, v: null, notes, na: true };
+  const NUM = '(\\d{1,3}(?:\\.\\d{3})+(?:,\\d+)?|\\d+(?:[.,]\\d+)?)';
+  const rg = new RegExp('^' + NUM + '\\s*(?:a|até|ate|-|–|~)\\s*' + NUM + '\\s*(%|m²|m2|m)?$', 'i').exec(s2);
+  if (rg) { const f = n => parseFloat(/,/.test(n) ? n.replace(/\./g, '').replace(',', '.') : (/^\d{1,3}(\.\d{3})+$/.test(n) ? n.replace(/\./g, '') : n)); return { raw: s, v: null, notes, range: [f(rg[1]), f(rg[2])], pct: rg[3] === '%' }; }
   const m = /^(-?\d{1,3}(?:\.\d{3})+(?:,\d+)?|-?\d+(?:[.,]\d+)?)\s*(%|m²|m2|m|metros?|pav\w*)?$/i.exec(s2);
   if (m) {
     let n = m[1];
@@ -1394,7 +1397,11 @@ function parseParamSheet(ws, cfg = {}) {
     const nums = numCols.filter(x => { const p = parseCell(row[x.c]); return p.v != null; }).length;
     if (started && nums === 0 && texts >= 2 && !cfg.noStop) break;           // começou outra tabela na mesma aba
     if (nums === 0) continue;
-    let code = zraw == null ? '' : String(zraw).trim();
+    let code = zraw == null ? '' : String(zraw).replace(/\s+/g, ' ').trim();
+    let zoneNote = '';
+    // "ZT4 (Mód 1 a 9)", "CC (Corredor Comercial)", "ZM1 – Zona Mista 1": o código é o que vem antes da descrição
+    const zm = /^(\S{1,12}?)\s*(?:\((.+?)\)?|\s[–-]\s(.{4,}))\s*$/.exec(code);
+    if (zm && /^[A-Za-z][\w\/-]*$/.test(zm[1])) { code = zm[1]; zoneNote = (zm[2] || zm[3] || '').trim(); }
     // tabelas por zona × categoria costumam deixar a zona só na 1ª linha (célula mesclada)
     if (!code && catC && started && lastZone) code = lastZone;
     if (!code || code.length > 30) continue;
@@ -1407,7 +1414,7 @@ function parseParamSheet(ws, cfg = {}) {
     const cells = {};
     cols.forEach(x => { cells[x.c] = parseCell(row[x.c]); });
     if (catC) cells[catC.c] = { raw: cat, v: null, notes: [], text: true };
-    rows.push({ code, cat, cells, r });
+    rows.push({ code, cat, cells, r, zoneNote });
   }
   // descarta colunas sem nenhum valor nas zonas (títulos soltos na linha do cabeçalho)
   for (let i = cols.length - 1; i >= 0; i--) if (cols[i] !== zc && rows.every(r => r.cells[cols[i].c].empty)) { rows.forEach(r => delete r.cells[cols[i].c]); cols.splice(i, 1); }
@@ -1477,7 +1484,7 @@ async function loadWorkbooks() {
       if (!a.length) { s.kind = 'vazia'; continue; }
       if (isUsesSheet(a)) { s.kind = 'usos'; const sc = usesScore(a).yn; if (sc > bu) { bu = sc; bestU = s; } continue; }
       s.kind = 'indices';
-      const sc = Math.max(bestHeader(a).score, bestHeader(transpose(a)).score);
+      const sc = Math.max(bestHeader(a).score, bestHeader(transpose(a)).score) + Math.min(a.length, 999) / 1000;
       if (sc > bs) { bs = sc; best = s; }
     }
     if (!state.uses && bestU) selectUses(bestU.id);
@@ -1858,28 +1865,38 @@ function renderCategoryTables(Z, E) {
     const multi = Z.entries.length > 1;
     const share = multi && e.pctKnown ? area * e.pct / 100 : area;
     if (!e.rows.length) { h += `<div class="report-alert">Zona "${esc(e.code)}": não consta na tabela de índices ${esc(Z.label)}${/ZUE|ZP|ZPT|ZC5/.test(e.code) ? ' (na lei, sem tabela própria — regras por memorial ou legislação específica)' : ''}.</div>`; return; }
+    const AGG_RX = /\betc\b|n[aã]o residenciais|misto|vari[aá]vel|^([A-Z](,\s*)?)+\b(?!\d)/i;
     const lines = e.rows.map(row => {
       const lote = cLote ? row.cells[cLote.c] : null;
-      const ok = lote && lote.v != null ? (area >= lote.v ? 'atende' : 'abaixo do mínimo') : '—';
-      return { row, ok, lote };
+      const agg = AGG_RX.test(row.cat) || Object.values(row.cells).some(c => c && (c.range || /vari[aá]vel/i.test(c.raw)));
+      let ok = '—';
+      if (lote && lote.range) ok = area >= lote.range[1] ? 'atende' : area >= lote.range[0] ? 'verificar' : 'abaixo do mínimo';
+      else if (lote && lote.v != null) ok = area >= lote.v ? 'atende' : 'abaixo do mínimo';
+      if (agg && ok === 'atende') ok = 'verificar';
+      return { row, ok, lote, agg };
     });
     h += `<div class="report-section"><div class="report-section-title">Índices por categoria de uso — zona ${esc(e.code)}</div><div class="rtable-wrap"><table class="report-table">
       <tr class="th"><td>Categoria</td><td class="n">Lote mín. (m²)</td><td class="n">Frente mín. (m)</td><td class="n">TO</td><td class="n">CA</td><td>Recuos F / Fu / L (m)</td><td class="n">Pav.</td><td>Terreno</td></tr>
-      ${lines.map(({ row, ok }) => `<tr><td>${esc(row.cat || '—')}</td><td class="n">${esc(cellTxt(row, cLote, 'x'))}</td><td class="n">${esc(cellTxt(row, cTest, 'x'))}</td><td class="n">${esc(cellTxt(row, cTO, 'to'))}</td><td class="n">${esc(cellTxt(row, cCA, 'x'))}</td><td>${esc([cRF, cRFu, cRL].map(c => cellTxt(row, c, 'x')).join(' / '))}</td><td class="n">${esc(cellTxt(row, cGab, 'x'))}</td><td class="${ok === 'atende' ? 'report-val-ok' : ok === '—' ? '' : 'report-val-muted'}">${ok}</td></tr>`).join('')}
+      ${lines.map(({ row, ok }) => `<tr><td>${esc(row.cat || '—')}</td><td class="n">${esc(cellTxt(row, cLote, 'x'))}</td><td class="n">${esc(cellTxt(row, cTest, 'x'))}</td><td class="n">${esc(cellTxt(row, cTO, 'to'))}</td><td class="n">${esc(cellTxt(row, cCA, 'x'))}</td><td>${esc([cRF, cRFu, cRL].map(c => cellTxt(row, c, 'x')).join(' / '))}</td><td class="n">${esc(cellTxt(row, cGab, 'x'))}</td><td class="${ok === 'atende' ? 'report-val-ok' : ok === 'verificar' ? 'report-val-highlight' : ok === '—' ? '' : 'report-val-muted'}">${ok}</td></tr>`).join('')}
       </table></div>`;
-    const obs = [...new Set(e.rows.map(row => others.map(c => row.cells[c.c] && !row.cells[c.c].empty ? row.cells[c.c].raw : '').filter(Boolean).join(' · ')).filter(Boolean))];
-    if (obs.length) h += `<div class="report-note">Observação da tabela: ${esc(obs.join(' | '))}</div>`;
+    const zNotes = [...new Set(e.rows.map(row => row.zoneNote).filter(Boolean))];
+    if (zNotes.length) h += `<div class="report-note">Zona na planilha: ${esc(e.code)} (${esc(zNotes.join('; '))})</div>`;
+    e.rows.forEach(row => { const o = others.map(c => row.cells[c.c] && !row.cells[c.c].empty ? row.cells[c.c].raw : '').filter(Boolean).join(' · '); if (o) h += `<div class="report-note">${esc(row.cat)}: ${esc(o)}</div>`; });
+    if (lines.some(l => l.agg)) h += `<div class="report-note">Linhas agregadas (várias categorias ou valores em faixa) são indicativas: confira a categoria exata na tabela da lei.</div>`;
     h += `</div>`;
     // estimativa por categoria que o terreno atende
     const est = lines.filter(l => l.ok !== 'abaixo do mínimo').map(({ row }) => {
       const ca = cCA ? row.cells[cCA.c] : null, to = cTO ? row.cells[cTO.c] : null;
-      return { row, comp: ca && ca.v != null ? share * ca.v : null, proj: to && to.v != null ? share * fracOf(to) : null };
-    }).filter(x => x.comp != null || x.proj != null);
+      const compR = ca && ca.range ? ca.range.map(v => share * v) : null;
+      const projR = to && to.range ? to.range.map(v => share * (to.pct || v > 1 ? v / 100 : v)) : null;
+      return { row, comp: ca && ca.v != null ? share * ca.v : null, proj: to && to.v != null ? share * fracOf(to) : null, compR, projR };
+    }).filter(x => x.comp != null || x.proj != null || x.compR || x.projR);
+    const fR = (v, r) => v != null ? nf0.format(v) + ' m²' : r ? `${nf0.format(r[0])} a ${nf0.format(r[1])} m²` : '—';
     if (est.length) {
-      const best = est.reduce((b, x) => (x.comp ?? -1) > (b.comp ?? -1) ? x : b, est[0]);
+      const best = est.filter(x => x.comp != null).reduce((b, x) => !b || x.comp > b.comp ? x : b, null) || { comp: null, row: {} };
       h += `<div class="report-section"><div class="report-section-title">Estimativa para o terreno — zona ${esc(e.code)} (${nf0.format(share)} m²${share !== area ? `, ${nf1.format(e.pct)}% do terreno` : ''})</div><div class="rtable-wrap"><table class="report-table">
         <tr class="th"><td>Categoria</td><td class="n">Área computável</td><td class="n">Projeção máxima</td></tr>
-        ${est.map(x => `<tr><td>${esc(x.row.cat)}</td><td class="n report-val-highlight">${x.comp != null ? nf0.format(x.comp) + ' m²' : '—'}</td><td class="n">${x.proj != null ? nf0.format(x.proj) + ' m²' : '—'}</td></tr>`).join('')}
+        ${est.map(x => `<tr><td>${esc(x.row.cat)}</td><td class="n report-val-highlight">${fR(x.comp, x.compR)}</td><td class="n">${fR(x.proj, x.projR)}</td></tr>`).join('')}
         </table></div>
         <div class="report-note">Maior área computável entre as categorias que o terreno atende: ${best.comp != null ? nf0.format(best.comp) + ' m² (' + esc(best.row.cat) + ')' : '—'}. Lote mínimo verificado pela área total do terreno (${nf0.format(area)} m²).</div>`;
     } else h += `<div class="report-section"><div class="report-section-title">Estimativa para o terreno — zona ${esc(e.code)}</div><div class="report-note">O terreno (${nf0.format(area)} m²) não atinge o lote mínimo de nenhuma categoria com índices numéricos nesta zona.</div>`;
