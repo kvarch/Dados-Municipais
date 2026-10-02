@@ -413,6 +413,13 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
     <section class="section" aria-labelledby="h-rep">
       <h2 id="h-rep">Relatório de interferências</h2>
       <p class="hint">Cruza todas as camadas carregadas com o terreno e o buffer definidos na aba Importar dados.</p>
+      <div id="use-sel-wrap" hidden>
+        <div class="row2">
+          <div class="field"><label for="sel-use">Uso pretendido</label><select id="sel-use"><option value="">Todas as categorias (comparativo)</option></select></div>
+          <div class="field"><label for="in-pd">Pé-direito (m)</label><input type="number" id="in-pd" value="3" min="2.4" max="6" step="0.1" inputmode="decimal"></div>
+        </div>
+        <p class="hint">A legislação define os índices por zona e categoria de uso. Escolha o uso para filtrar a estimativa e o resumo; a tabela por categoria continua completa.</p>
+      </div>
       <button class="btn primary block" id="btn-report"><span data-icon="fileText"></span>Gerar relatório</button>
       <button class="btn block" id="btn-pdf" disabled><span data-icon="download"></span>Exportar PDF (A4)</button>
       <progress id="rep-prog" max="1" value="0" hidden aria-label="Progresso da geração do PDF"></progress>
@@ -439,7 +446,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 <footer class="statusbar">
   <div class="status-msg" id="status-msg" role="status" aria-live="polite">Pronto</div>
   <div class="status-cell" id="gi-status" title="Conexão com o Giraffe"><span class="giraffe-dot" id="gi-dot" aria-hidden="true"></span><span id="gi-label">Giraffe</span></div>
-  <div class="status-cell version">Beta - V06 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V07 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
@@ -451,7 +458,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* =====================================================================
-   KV Dados Municipais — V06
+   KV Dados Municipais — V07
    Leitura local de Shapefile / GeoJSON / KML / KMZ, reprojeção para
    WGS84, recorte por buffer do terreno e importação no Giraffe.
    Bibliotecas: Turf 6.5.0 (MIT), proj4 2.11.0 (MIT), shpjs 4.0.4 (MIT),
@@ -460,7 +467,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
    ===================================================================== */
 (() => {
 'use strict';
-const APP_VERSION = 'V06';
+const APP_VERSION = 'V07';
 const TAG = 'kvloc_';
 const RAW_LIMIT = 3000;          // teto de feições por camada no modo "desenhar no projeto"
 const $ = s => document.querySelector(s);
@@ -1456,6 +1463,8 @@ state.sheets = [];     // { id, doc, name, wb }
 state.param = null;    // { sheetId, cfg, P }
 state.link = null;     // { layerPath, field }
 state.uses = null;     // { sheetId, U, label } — matriz de usos permitidos
+state.useSel = '';     // categoria de uso escolhida no relatório (ex.: 'H2')
+state.pd = 3;          // pé-direito para estimar H
 const zoneMatch = v => (state.param && !state.param.P.error && findZoneRow(state.param.P, v)) || (state.uses && findUsesZone(state.uses.U, v)) || null;
 const zoneSource = () => (state.param && !state.param.P.error) || state.uses;
 const cfgKey = id => 'kv-dadosmun-param:' + id;
@@ -1852,6 +1861,129 @@ function buildReportModel() {
   return { t, bufferM: state.bufferM, items, pending, docs: state.docs.slice(), at: new Date(), zoning: zoningForTerrain() };
 }
 
+/* ---------------- Uso pretendido (tabelas zona × categoria) ---------------- */
+const CAT_CODE_RX = /\b([A-Z]{1,2})\s?(\d{1,2})\b/g;
+const catCodesOf = s => [...String(s || '').matchAll(CAT_CODE_RX)].map(m => m[1] + m[2]);
+const CAT_ORDER = 'HERASCI';
+function catSort(a, b) {
+  const la = a.replace(/\d+/, ''), lb = b.replace(/\d+/, '');
+  const ia = CAT_ORDER.indexOf(la), ib = CAT_ORDER.indexOf(lb);
+  return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || la.localeCompare(lb) || (+a.replace(/\D/g, '')) - (+b.replace(/\D/g, ''));
+}
+/* Linha da tabela vale para o código? Exata ("E1, E2…") ou agregada pela letra ("E, S, C") */
+function rowMatchesUse(cat, code) {
+  const codes = catCodesOf(cat);
+  if (codes.includes(code)) return 'exata';
+  const letter = code.replace(/\d+/, '');
+  if (new RegExp('(^|[^A-Za-z])' + letter + '(?![A-Za-z0-9])').test(String(cat).replace(/\([^)]*\)/g, m => m.replace(/[A-Z]\d/g, '')))) return 'agregada';
+  return null;
+}
+function groupNameOf(code) {
+  const U = state.uses && state.uses.U;
+  const k = U && U.cats.find(c => c.code === code);
+  if (k) return k.group;
+  const L = code.replace(/\d+/, '');
+  const k2 = U && U.cats.find(c => c.letter === L);
+  return k2 ? k2.group : L;
+}
+function renderUseOptions() {
+  const P = state.param && !state.param.P.error ? state.param.P : null;
+  const wrap = $('#use-sel-wrap'); if (!wrap) return;
+  wrap.hidden = !(P && P.hasCat);
+  if (!P || !P.hasCat) { state.useSel = ''; return; }
+  const Z = state.report && state.report.zoning;
+  const rows = Z && Z.entries.length ? Z.entries.flatMap(e => e.rows) : P.rows;
+  const codes = [...new Set(rows.flatMap(r => catCodesOf(r.cat)))].sort(catSort);
+  if (state.useSel && !codes.includes(state.useSel)) codes.push(state.useSel);
+  const groups = new Map();
+  codes.forEach(c => { const g = groupNameOf(c); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(c); });
+  const leg = P.legend || {};
+  $('#sel-use').innerHTML = '<option value="">Todas as categorias (comparativo)</option>' +
+    [...groups.entries()].map(([g, cs]) => `<optgroup label="${esc(g)}">${cs.map(c => `<option value="${esc(c)}"${c === state.useSel ? ' selected' : ''}>${esc(c)}${leg[c] ? ' — ' + esc(leg[c]) : ''}</option>`).join('')}</optgroup>`).join('');
+}
+/* Recuo em função da altura: "1+H/6", "H/2>3" (H/2, mínimo 3), "2+H/10", "1,5+H/10" */
+function evalRecuo(raw, H) {
+  if (raw == null || raw === '') return null;
+  let s = String(raw).replace(/\s+/g, '').replace(/,/g, '.').toUpperCase();
+  if (/OU/.test(s)) return { txt: String(raw).trim() + ' (conforme a via)' };
+  let min = null;
+  const m = /^(.+?)>(\d+(?:\.\d+)?)$/.exec(s);
+  if (m) { s = m[1]; min = +m[2]; }
+  if (!/^[\dH+\-*/.()]+$/.test(s)) return { txt: String(raw).trim() };
+  if (!/H/.test(s)) { const v = +s; return isFinite(v) ? { v } : { txt: String(raw).trim() }; }
+  try {
+    let v = Function('H', '"use strict";return (' + s.replace(/(\d)H/g, '$1*H') + ')')(H);
+    if (!isFinite(v)) return { txt: String(raw).trim() };
+    if (min != null) v = Math.max(v, min);
+    return { v, formula: String(raw).trim() };
+  } catch (e) { return { txt: String(raw).trim() }; }
+}
+function renderUseDetail(Z, e, lines, share, C) {
+  const code = state.useSel, area = Z.area, pd = Math.max(2.4, Math.min(6, +state.pd || 3));
+  const leg = (Z.P.legend || {})[code];
+  const U = Z.U, uz = e.uz;
+  let perm = null;
+  if (U && uz) { const k = U.cats.find(c => c.code === code); if (k) perm = k.vals[uz.c]; }
+  const cand = lines.map(l => ({ ...l, m: rowMatchesUse(l.row.cat, code) })).filter(l => l.m);
+  const head = `<div class="report-section"><div class="report-section-title">Uso ${esc(code)}${leg ? ' (' + esc(leg) + ')' : ''} — zona ${esc(e.code)} · ${nf0.format(share)} m²${share !== area ? ` (${nf1.format(e.pct)}% do terreno)` : ''}</div>`;
+  const permTxt = perm === true ? 'permitido' : perm === false ? 'NÃO permitido' : null;
+  if (!cand.length) return head + `<div class="report-note">A categoria ${esc(code)} não consta na tabela de índices desta zona${permTxt ? ` · matriz de usos: ${permTxt}` : ''}. Na Tabela A de Bertioga, ausência na tabela indica uso não previsto para a zona.</div></div>`;
+  // faixas por lote: aplica as que o terreno atende; entre elas, a de maior lote mínimo (mais específica)
+  const loteMin = l => l.lote ? (l.lote.v != null ? l.lote.v : l.lote.range ? l.lote.range[0] : 0) : 0;
+  const ok = cand.filter(l => l.ok !== 'abaixo do mínimo');
+  const topLote = ok.length ? Math.max(...ok.map(loteMin)) : null;
+  const chosen = ok.filter(l => loteMin(l) === topLote);
+  const notReached = cand.filter(l => l.ok === 'abaixo do mínimo');
+  const lower = ok.filter(l => loteMin(l) !== topLote);
+  let h = head;
+  if (permTxt === 'NÃO permitido') h += `<div class="report-alert">Matriz de usos: ${esc(code)} não é permitido na zona ${esc(e.code)}, embora conste na tabela de índices — confira na lei.</div>`;
+  if (!chosen.length) {
+    h += `<div class="report-note">O terreno (${nf0.format(area)} m²) não atinge o lote mínimo para ${esc(code)} nesta zona: ${esc(notReached.map(l => `${l.row.cat} exige ${fmtCell(l.lote, 'lote')}`).join('; '))}.</div></div>`;
+    return h;
+  }
+  const g = (l, c) => c ? l.row.cells[c.c] : null;
+  const fm = v => nf0.format(v) + ' m²';
+  const cols = chosen.map(l => {
+    const to = g(l, C.cTO), ca = g(l, C.cCA), pav = g(l, C.cGab), lote = g(l, C.cLote), fr = g(l, C.cTest);
+    const npav = pav && pav.v != null ? pav.v : pav && pav.range ? pav.range[1] : null;
+    const H = npav != null ? npav * pd : null;
+    const toF = to && to.v != null ? fracOf(to) : null;
+    const proj = toF != null ? share * toF : null;
+    const comp = ca && ca.v != null ? share * ca.v : null;
+    const env = proj != null && npav != null ? proj * npav : null;
+    const lim = comp != null && env != null ? Math.min(comp, env) : comp ?? env;
+    const limBy = comp != null && env != null ? (comp <= env ? 'CA' : 'TO × pavimentos') : comp != null ? 'CA' : env != null ? 'TO × pavimentos' : null;
+    const rec = c => { const x = g(l, c); if (!x || x.empty) return '—'; if (x.na) return 'não se aplica'; const r = evalRecuo(x.v != null ? String(x.v) : x.raw, H ?? 0); if (!r) return '—'; if (r.txt) return r.txt; if (r.formula) return H != null ? `${r.formula} = ~${nf1.format(r.v)} m` : r.formula; return nf1.format(r.v) + ' m'; };
+    return {
+      cat: l.row.cat + (l.m === 'agregada' ? ' (linha agregada)' : ''),
+      lote: lote && !lote.empty ? `${fmtCell(lote, 'lote')} · ${l.ok}` : '—',
+      frente: fr && !fr.empty ? fmtCell(fr, 'testada') + ' (conferir testada)' : '—',
+      to: to && !to.empty ? `${fmtCell(to, 'to')}${proj != null ? ' · projeção ' + fm(proj) : ''}` : '—',
+      ca: ca && !ca.empty ? `${fmtCell(ca, 'x')}${comp != null ? ' · computável ' + fm(comp) : ''}` : '—',
+      pav: pav && !pav.empty ? `${fmtCell(pav, 'x')}${H != null ? ` · altura H ~${nf1.format(H)} m` : ''}` : '—',
+      rf: rec(C.cRF), rfu: rec(C.cRFu), rl: rec(C.cRL),
+      env: env != null ? fm(env) : '—',
+      lim: lim != null ? `${fm(lim)}${limBy ? ' (limitado por ' + limBy + ')' : ''}` : '—'
+    };
+  });
+  const many = cols.length > 1;
+  const row = (lab, k, hl) => `<tr><td class="k">${lab}</td>${cols.map(c => `<td${hl ? ' class="report-val-highlight"' : ''}>${esc(c[k])}</td>`).join('')}</tr>`;
+  h += `<div class="rtable-wrap"><table class="report-table">
+    ${many ? `<tr class="th"><td>Parâmetro</td>${cols.map((c, i) => `<td>Alternativa ${i + 1}</td>`).join('')}</tr>` : ''}
+    ${row('Linha da tabela', 'cat')}
+    ${permTxt ? `<tr><td class="k">Matriz de usos</td>${cols.map(() => `<td class="${perm ? 'report-val-ok' : 'report-val-muted'}">${permTxt}</td>`).join('')}</tr>` : ''}
+    ${row('Lote mínimo', 'lote')}${row('Frente mínima', 'frente')}
+    ${row('Taxa de ocupação', 'to')}${row('Coeficiente de aproveitamento', 'ca')}${row('Nº de pavimentos', 'pav')}
+    ${row('Recuo de frente', 'rf')}${row('Recuo de fundo', 'rfu')}${row('Recuos laterais', 'rl')}
+    ${row('Área construída por TO × pavimentos', 'env')}${row('Área construída máxima estimada', 'lim', true)}
+    </table></div>`;
+  if (many) h += `<div class="report-note">A tabela traz ${cols.length} alternativas para ${esc(code)} com o mesmo lote mínimo (ex.: menor TO com mais pavimentos). Escolha conforme o projeto.</div>`;
+  if (lower.length) h += `<div class="report-note">Faixas de lote menor também atendidas (menos vantajosas ou alternativas): ${esc(lower.map(l => l.row.cat + ' · lote ' + fmtCell(l.lote, 'lote')).join('; '))}.</div>`;
+  if (notReached.length) h += `<div class="report-note">Faixas não atingidas pelo terreno: ${esc(notReached.map(l => `${l.row.cat} · lote ${fmtCell(l.lote, 'lote')} · CA ${fmtCell(g(l, C.cCA), 'x')}`).join('; '))}.</div>`;
+  h += `<div class="report-note">Altura estimada H = pavimentos × pé-direito de ${nf1.format(pd)} m, usada nos recuos em função de H. Área construída máxima = menor valor entre CA × área e TO × área × pavimentos; não considera áreas não computáveis, subsolos, incentivos ou outorga.</div>`;
+  return h;
+}
+
 /* Índices por categoria de uso, com verificação do lote mínimo e estimativa */
 function renderCategoryTables(Z, E) {
   const P = Z.P, area = Z.area;
@@ -1881,18 +2013,23 @@ function renderCategoryTables(Z, E) {
       </table></div>`;
     const zNotes = [...new Set(e.rows.map(row => row.zoneNote).filter(Boolean))];
     if (zNotes.length) h += `<div class="report-note">Zona na planilha: ${esc(e.code)} (${esc(zNotes.join('; '))})</div>`;
-    e.rows.forEach(row => { const o = others.map(c => row.cells[c.c] && !row.cells[c.c].empty ? row.cells[c.c].raw : '').filter(Boolean).join(' · '); if (o) h += `<div class="report-note">${esc(row.cat)}: ${esc(o)}</div>`; });
+    // observações: agrupa categorias com o mesmo texto
+    const obsMap = new Map();
+    e.rows.forEach(row => { const o = others.map(c => row.cells[c.c] && !row.cells[c.c].empty ? row.cells[c.c].raw : '').filter(Boolean).join(' · '); if (o) { if (!obsMap.has(o)) obsMap.set(o, []); obsMap.get(o).push(row.cat); } });
+    obsMap.forEach((cats, o) => { h += `<div class="report-note">${cats.length === e.rows.length ? 'Todas as linhas' : esc([...new Set(cats)].join('; '))}: ${esc(o)}</div>`; });
     if (lines.some(l => l.agg)) h += `<div class="report-note">Linhas agregadas (várias categorias ou valores em faixa) são indicativas: confira a categoria exata na tabela da lei.</div>`;
     h += `</div>`;
+    if (state.useSel) h += renderUseDetail(Z, e, lines, share, { cLote, cTest, cTO, cCA, cRF, cRFu, cRL, cGab, col, others });
     // estimativa por categoria que o terreno atende
-    const est = lines.filter(l => l.ok !== 'abaixo do mínimo').map(({ row }) => {
+    const est = state.useSel ? [] : lines.filter(l => l.ok !== 'abaixo do mínimo').map(({ row }) => {
       const ca = cCA ? row.cells[cCA.c] : null, to = cTO ? row.cells[cTO.c] : null;
       const compR = ca && ca.range ? ca.range.map(v => share * v) : null;
       const projR = to && to.range ? to.range.map(v => share * (to.pct || v > 1 ? v / 100 : v)) : null;
       return { row, comp: ca && ca.v != null ? share * ca.v : null, proj: to && to.v != null ? share * fracOf(to) : null, compR, projR };
     }).filter(x => x.comp != null || x.proj != null || x.compR || x.projR);
     const fR = (v, r) => v != null ? nf0.format(v) + ' m²' : r ? `${nf0.format(r[0])} a ${nf0.format(r[1])} m²` : '—';
-    if (est.length) {
+    if (state.useSel) { /* estimativa filtrada já incluída */ }
+    else if (est.length) {
       const best = est.filter(x => x.comp != null).reduce((b, x) => !b || x.comp > b.comp ? x : b, null) || { comp: null, row: {} };
       h += `<div class="report-section"><div class="report-section-title">Estimativa para o terreno — zona ${esc(e.code)} (${nf0.format(share)} m²${share !== area ? `, ${nf1.format(e.pct)}% do terreno` : ''})</div><div class="rtable-wrap"><table class="report-table">
         <tr class="th"><td>Categoria</td><td class="n">Área computável</td><td class="n">Projeção máxima</td></tr>
@@ -1974,8 +2111,11 @@ function renderZoningSummary(Z) {
   });
   return h;
 }
+$('#sel-use').addEventListener('change', e => { state.useSel = e.target.value; log('info', state.useSel ? `Relatório filtrado pelo uso ${state.useSel}.` : 'Relatório com todas as categorias.'); if (state.terrain) renderReport(); });
+$('#in-pd').addEventListener('change', e => { state.pd = +e.target.value || 3; if (state.terrain && state.useSel) renderReport(); });
 function renderReport() {
   const el = $('#reportContent'), empty = $('#reportEmpty');
+  renderUseOptions();
   if (!state.layers.length || !state.terrain) {
     state.report = null; el.hidden = true; empty.hidden = false; $('#btn-pdf').disabled = true;
     empty.textContent = !state.layers.length ? 'Carregue os arquivos do município na aba Importar dados.' : 'Selecione o terreno na aba Importar dados.';
@@ -1985,7 +2125,7 @@ function renderReport() {
   const t = M.t, inc = M.items.filter(x => x.L.inTer.length), prox = M.items.filter(x => !x.L.inTer.length && x.L.inBuf.length);
   const sitCls = s => s === 'INCIDE NO TERRENO' ? 'report-val-ok' : s === 'nas proximidades' ? 'report-val-highlight' : 'report-val-muted';
   let h = `<div class="report-header">
-      <div class="report-terrain-pill">Terreno de ${nf0.format(t.area)} m²${M.zoning && M.zoning.entries.length ? ' · ' + esc(M.zoning.entries.map(e => e.code).join(' / ')) : ''} · buffer de ${nf0.format(M.bufferM)} m</div>
+      <div class="report-terrain-pill">Terreno de ${nf0.format(t.area)} m²${M.zoning && M.zoning.entries.length ? ' · ' + esc(M.zoning.entries.map(e => e.code).join(' / ')) : ''}${state.useSel && M.zoning && M.zoning.P && M.zoning.P.hasCat ? ' · uso ' + esc(state.useSel) : ''} · buffer de ${nf0.format(M.bufferM)} m</div>
       <div class="report-lei">Centroide ${nf5.format(t.c[1])}, ${nf5.format(t.c[0])} · fuso UTM ${t.zone}S · ${M.items.length} camada(s) analisada(s) · ${inc.length} incide(m) no terreno · ${prox.length} nas proximidades</div>
       ${M.docs.length ? `<div class="report-tags">${M.docs.map(d => `<span class="report-ou-tag">${esc(d.kind)} · ${esc(d.name)}</span>`).join('')}</div>` : ''}
     </div>`;
@@ -2021,6 +2161,7 @@ function renderReport() {
   }
   h += `<div class="report-footer">KV Dados Municipais ${APP_VERSION} · gerado em ${M.at.toLocaleString('pt-BR')}</div>`;
   el.innerHTML = h; el.hidden = false; empty.hidden = true;
+  renderUseOptions();
   $('#btn-pdf').disabled = state.busy;
 }
 $('#btn-report').onclick = async () => {
@@ -2431,7 +2572,8 @@ $('#btn-pdf').onclick = async () => {
     _addResumoTodasCamadas(pdf, M, now);
     _pageFooters(pdf);
     const zs = M.zoning && M.zoning.entries.length ? M.zoning.entries.map(e => slug(e.code)).join('-') + '_' : '';
-    const fn = `KV_Relatorio_Municipal_${zs}${new Date().toISOString().slice(0, 10)}.pdf`;
+    const us = state.useSel && M.zoning && M.zoning.P && M.zoning.P.hasCat ? 'uso-' + slug(state.useSel) + '_' : '';
+    const fn = `KV_Relatorio_Municipal_${zs}${us}${new Date().toISOString().slice(0, 10)}.pdf`;
     pdf.save(fn);
     const msg = `PDF exportado em ${((performance.now() - t0) / 1000).toFixed(1)}s: ${fn} (${pdf.getNumberOfPages()} páginas).`;
     log('ok', msg); status(msg); $('#rep-info').textContent = msg;
