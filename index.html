@@ -186,7 +186,7 @@ progress::-webkit-progress-value{background:var(--md-sys-color-primary)}
 .docs li svg.i{color:var(--md-sys-color-on-surface-variant)}
 
 /* ---------- Relatório (classes lidas pelo conversor HTML → PDF) ---------- */
-#reportContent{display:grid;gap:12px}
+#reportContent{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0}
 .report-header{padding:14px 16px;background:var(--md-sys-color-inverse-surface);color:var(--md-sys-color-inverse-on-surface)}
 .report-terrain-pill{font-size:17px;font-weight:600;line-height:1.3}
 .report-lei{margin-top:4px;font-size:12px;opacity:.85;font-variant-numeric:tabular-nums}
@@ -371,6 +371,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
       <div class="field"><label for="par-file">Planilha e aba</label><select id="par-file" disabled><option value="">Nenhuma planilha carregada</option></select></div>
       <button class="btn block" id="btn-par-open"><span data-icon="sheet"></span>Escolher planilha</button>
       <input type="file" id="in-par" hidden aria-hidden="true" accept=".xlsx,.xls,.ods,.csv">
+      <p class="info" id="pack-status" aria-live="polite">Planilhas e relatório são salvos automaticamente no projeto.</p>
       <dl class="slots" id="par-slots" hidden aria-live="polite">
         <dt>Índices urbanísticos</dt><dd id="slot-idx">—</dd>
         <dt>Usos permitidos</dt><dd id="slot-uso">—</dd>
@@ -400,6 +401,12 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
       <p class="hint">Confira o significado de cada coluna. Os cálculos usam CA, TO e TP; as demais aparecem no relatório como estão na planilha.</p>
       <ul class="pcols" id="par-cols"></ul>
     </section>
+    <section class="section" aria-labelledby="h-pack">
+      <h2 id="h-pack">Dados salvos no projeto</h2>
+      <p class="hint">As planilhas da lei (com a configuração das colunas e o vínculo com o zoneamento) e o último relatório ficam salvos no projeto do Giraffe. As camadas não são salvas: reimporte quando precisar atualizar a análise.</p>
+      <p class="info" id="pack-status2" aria-live="polite">—</p>
+      <button class="btn block danger" id="btn-pack-clear"><span data-icon="trash"></span>Apagar dados salvos</button>
+    </section>
     <section class="section" id="par-zones-sec" aria-labelledby="h-par4" hidden>
       <h2 id="h-par4">Zonas e notas lidas</h2>
       <div class="chips" id="par-zones"></div>
@@ -426,6 +433,8 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
       <p class="info" id="rep-info" aria-live="polite"></p>
     </section>
     <section class="section" aria-label="Conteúdo do relatório">
+      <div class="alert neutral" id="saved-banner" role="note" hidden><span data-icon="info"></span><span id="saved-banner-txt"></span></div>
+      <button class="btn block" id="btn-saved-terrain" hidden style="margin-bottom:12px"><span data-icon="target"></span>Usar terreno do relatório salvo</button>
       <p class="empty" id="reportEmpty">Carregue os arquivos, selecione o terreno e clique em Gerar relatório.</p>
       <div id="reportContent" hidden></div>
     </section>
@@ -446,7 +455,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 <footer class="statusbar">
   <div class="status-msg" id="status-msg" role="status" aria-live="polite">Pronto</div>
   <div class="status-cell" id="gi-status" title="Conexão com o Giraffe"><span class="giraffe-dot" id="gi-dot" aria-hidden="true"></span><span id="gi-label">Giraffe</span></div>
-  <div class="status-cell version">Beta - V07 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V08 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
@@ -458,7 +467,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* =====================================================================
-   KV Dados Municipais — V07
+   KV Dados Municipais — V08
    Leitura local de Shapefile / GeoJSON / KML / KMZ, reprojeção para
    WGS84, recorte por buffer do terreno e importação no Giraffe.
    Bibliotecas: Turf 6.5.0 (MIT), proj4 2.11.0 (MIT), shpjs 4.0.4 (MIT),
@@ -467,7 +476,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
    ===================================================================== */
 (() => {
 'use strict';
-const APP_VERSION = 'V07';
+const APP_VERSION = 'V08';
 const TAG = 'kvloc_';
 const RAW_LIMIT = 3000;          // teto de feições por camada no modo "desenhar no projeto"
 const $ = s => document.querySelector(s);
@@ -1470,6 +1479,7 @@ const zoneSource = () => (state.param && !state.param.P.error) || state.uses;
 const cfgKey = id => 'kv-dadosmun-param:' + id;
 function loadCfg(id) { try { return JSON.parse(localStorage.getItem(cfgKey(id)) || 'null'); } catch (e) { return null; } }
 function saveCfg() {
+  schedulePackSave('configuração da planilha');
   if (!state.param) return;
   try { localStorage.setItem(cfgKey(state.param.sheetId), JSON.stringify({ ...state.param.cfg, link: state.link })); } catch (e) {}
 }
@@ -1517,6 +1527,7 @@ function selectUses(id) {
   state.uses = { sheetId: id, U, label: `${s.doc.name} · ${s.name}` };
   const nz = U.zones.reduce((n, z) => n + z.codes.length, 0);
   renderParamPicker();
+  schedulePackSave('matriz de usos');
   log('ok', `Usos permitidos: ${U.cats.length} categoria(s) × ${nz} zona(s), ${new Set(U.cats.map(k => k.group)).size} grupo(s) — ${state.uses.label}.`);
   if (!state.link || !state.layers.some(l => l.path === state.link.layerPath)) autoLink();
   renderParams(); if (state.report) renderReport();
@@ -2116,8 +2127,11 @@ $('#in-pd').addEventListener('change', e => { state.pd = +e.target.value || 3; i
 function renderReport() {
   const el = $('#reportContent'), empty = $('#reportEmpty');
   renderUseOptions();
+  $('#saved-banner').hidden = true; $('#btn-saved-terrain').hidden = true;
   if (!state.layers.length || !state.terrain) {
-    state.report = null; el.hidden = true; empty.hidden = false; $('#btn-pdf').disabled = true;
+    state.report = null;
+    if (showSavedReport()) return;
+    el.hidden = true; empty.hidden = false; $('#btn-pdf').disabled = true;
     empty.textContent = !state.layers.length ? 'Carregue os arquivos do município na aba Importar dados.' : 'Selecione o terreno na aba Importar dados.';
     return;
   }
@@ -2162,6 +2176,7 @@ function renderReport() {
   h += `<div class="report-footer">KV Dados Municipais ${APP_VERSION} · gerado em ${M.at.toLocaleString('pt-BR')}</div>`;
   el.innerHTML = h; el.hidden = false; empty.hidden = true;
   renderUseOptions();
+  rememberReport(M);
   $('#btn-pdf').disabled = state.busy;
 }
 $('#btn-report').onclick = async () => {
@@ -2551,7 +2566,14 @@ function buildPdfItem(x, M) {
 
 $('#btn-pdf').onclick = async () => {
   if (!state.report) renderReport();
-  const M = state.report; if (!M) return;
+  let M = state.report;
+  const fromSaved = !M && state.savedReport;
+  if (fromSaved) {
+    const S = state.savedReport;
+    M = { items: S.items.map(x => ({ L: { name: x.name, geomType: x.geomType, inBuf: [], inTer: [] }, sit: x.sit, grupo: x.grupo })), pending: (S.pending || []).map(x => ({ name: x.name, geomType: x.geomType, path: x.grupo + '/x' })), bufferM: S.bufferM, zoning: { entries: S.zones.map(code => ({ code })), P: { hasCat: !!S.useSel } }, savedUse: S.useSel };
+    log('info', 'PDF gerado a partir do relatório salvo: sem os mapas por camada (exigem as camadas carregadas).');
+  }
+  if (!M) return;
   const btn = $('#btn-pdf'), prog = $('#rep-prog');
   btn.disabled = true; state.busy = true; setBusyUI(); prog.hidden = false; prog.value = 0;
   try {
@@ -2572,7 +2594,8 @@ $('#btn-pdf').onclick = async () => {
     _addResumoTodasCamadas(pdf, M, now);
     _pageFooters(pdf);
     const zs = M.zoning && M.zoning.entries.length ? M.zoning.entries.map(e => slug(e.code)).join('-') + '_' : '';
-    const us = state.useSel && M.zoning && M.zoning.P && M.zoning.P.hasCat ? 'uso-' + slug(state.useSel) + '_' : '';
+    const useCode = fromSaved ? M.savedUse : state.useSel;
+    const us = useCode && M.zoning && M.zoning.P && M.zoning.P.hasCat ? 'uso-' + slug(useCode) + '_' : '';
     const fn = `KV_Relatorio_Municipal_${zs}${us}${new Date().toISOString().slice(0, 10)}.pdf`;
     pdf.save(fn);
     const msg = `PDF exportado em ${((performance.now() - t0) / 1000).toFixed(1)}s: ${fn} (${pdf.getNumberOfPages()} páginas).`;
@@ -2582,13 +2605,172 @@ $('#btn-pdf').onclick = async () => {
 };
 
 /* =====================================================================
+   SALVAR NO PROJETO (V08) — planilhas da lei + último relatório
+   Guardados no JSON "public" do app no projeto (updateProjectApp).
+   Camadas NÃO são salvas: são reimportadas quando necessário.
+   ===================================================================== */
+const PACK_KEY = 'kvDadosMunicipais';
+const PACK_LOCAL = 'kv-dadosmun-pack';
+const PACK_MAX = 900 * 1024;
+let packTimer = 0, packLastJson = '', packRestoring = false;
+state.savedReport = null;   // { html, at, area, zones, useSel, bufferM, terrain, items }
+function packSheets() {
+  const used = new Set([state.param && state.param.sheetId, state.uses && state.uses.sheetId].filter(Boolean));
+  const docs = new Set(state.sheets.filter(s => used.has(s.id)).map(s => s.doc.path));
+  const out = [];
+  state.sheets.filter(s => docs.has(s.doc.path)).forEach(s => {
+    const a = sheetMatrix(s.wb.Sheets[s.name]);
+    if (!a.length || a.length > 600 || Math.max(0, ...a.map(r => r.length)) > 80) return;
+    let last = a.length; while (last > 0 && !a[last - 1].some(v => v != null && v !== '')) last--;
+    out.push({ id: s.id, doc: s.doc.path, docName: s.doc.name, name: s.name, kind: s.kind, aoa: a.slice(0, last).map(r => r.map(v => v instanceof Date ? v.toISOString() : v)) });
+  });
+  return out;
+}
+function buildPack() {
+  return {
+    v: 1, app: APP_VERSION, savedAt: new Date().toISOString(),
+    sheets: packSheets(),
+    param: state.param ? { sheetId: state.param.sheetId, cfg: state.param.cfg } : null,
+    uses: state.uses ? { sheetId: state.uses.sheetId } : null,
+    link: state.link, useSel: state.useSel, pd: state.pd,
+    report: state.savedReport
+  };
+}
+async function writePack(pack) {
+  const json = JSON.stringify(pack);
+  if (json.length > PACK_MAX) {
+    log('warn', `Dados para salvar no projeto com ${nf0.format(json.length / 1024)} kB (limite ${nf0.format(PACK_MAX / 1024)} kB). O relatório salvo foi omitido.`);
+    pack = { ...pack, report: null };
+  }
+  const g = (inIframe || window.__mockGi) ? await sdk().catch(() => null) : null;
+  const pa = g && g.state.get('selectedProjectApp');
+  if (g && pa && pa.app != null) {
+    await g.rpc.invoke('updateProjectApp', [pa.app, { ...pa, public: { ...(pa.public || {}), [PACK_KEY]: pack } }]);
+    return 'projeto';
+  }
+  localStorage.setItem(PACK_LOCAL, JSON.stringify(pack));
+  return 'navegador';
+}
+const packSig = pack => JSON.stringify({ ...pack, savedAt: 0, report: pack.report ? { ...pack.report, at: 0, html: pack.report.html.replace(/<div class="report-footer">[\s\S]*?<\/div>/, '') } : null });
+function schedulePackSave(reason) {
+  if (packRestoring) return;
+  clearTimeout(packTimer);
+  packTimer = setTimeout(async () => {
+    const pack = buildPack();
+    const sig = packSig(pack);
+    if (sig === packLastJson) return;
+    try {
+      const where = await writePack(pack);
+      packLastJson = sig;
+      const msg = `Salvo no ${where} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}${pack.report ? ' (planilhas + relatório)' : ' (planilhas)'}`;
+      $('#pack-status').textContent = msg; $('#pack-status2').textContent = msg;
+      log('ok', `${msg}${reason ? ' — ' + reason : ''}.`);
+    } catch (e) {
+      log('err', `Salvar no projeto: ${e.message}. Verifique se o app tem permissão para atualizar o projeto.`);
+      $('#pack-status').textContent = 'Falha ao salvar no projeto — veja o Log.';
+    }
+  }, 1500);
+}
+async function readPack() {
+  if (inIframe || window.__mockGi) {
+    try {
+      const g = await sdk();
+      for (let i = 0; i < 16; i++) {           // o estado do projeto pode chegar depois do carregamento do app
+        const pa = g.state.get('selectedProjectApp');
+        if (pa) return (pa.public && pa.public[PACK_KEY]) || null;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      log('warn', 'Configuração do app no projeto (selectedProjectApp) indisponível — dados salvos não puderam ser lidos.');
+      return null;
+    } catch (e) { return null; }
+  }
+  try { return JSON.parse(localStorage.getItem(PACK_LOCAL) || 'null'); } catch (e) { return null; }
+}
+async function restorePack() {
+  const pack = await readPack();
+  if (!pack || pack.v !== 1) return;
+  packRestoring = true;
+  try {
+    // planilhas: recria os workbooks a partir das matrizes salvas
+    const wbs = new Map();
+    (pack.sheets || []).forEach(s => {
+      if (!wbs.has(s.doc)) wbs.set(s.doc, { name: s.docName, wb: { SheetNames: [], Sheets: {} } });
+      const W = wbs.get(s.doc).wb;
+      W.SheetNames.push(s.name); W.Sheets[s.name] = XLSX.utils.aoa_to_sheet(s.aoa);
+    });
+    wbs.forEach(({ name, wb }, path) => {
+      if (!state.docs.some(d => d.path === path)) state.docs.push({ path, name, ext: extOf(name), kind: 'Planilha', size: 0, _wbDone: true, restored: true, read: async () => { throw new Error('planilha restaurada do projeto'); } });
+      wb.SheetNames.forEach(sn => {
+        const id = path + '#' + sn, saved = pack.sheets.find(x => x.id === id);
+        if (!state.sheets.some(x => x.id === id)) state.sheets.push({ id, doc: state.docs.find(d => d.path === path), name: sn, wb, kind: saved && saved.kind });
+      });
+    });
+    if (pack.link) state.link = pack.link;
+    if (pack.uses && state.sheets.some(s => s.id === pack.uses.sheetId)) selectUses(pack.uses.sheetId);
+    if (pack.param && state.sheets.some(s => s.id === pack.param.sheetId)) selectSheet(pack.param.sheetId, { ...pack.param.cfg });
+    if (pack.link) state.link = pack.link;      // selectSheet/selectUses podem ter tentado o vínculo automático sem camadas
+    state.useSel = pack.useSel || ''; state.pd = pack.pd || 3; $('#in-pd').value = state.pd;
+    state.savedReport = pack.report || null;
+    renderParamPicker(); renderParams(); renderDocs(); renderSummary(); renderReport();
+    const when = pack.savedAt ? new Date(pack.savedAt).toLocaleString('pt-BR') : '';
+    const n = (pack.sheets || []).length;
+    log('ok', `Dados salvos no projeto restaurados (${when}): ${n} aba(s) de planilha${state.savedReport ? ' e o último relatório' : ''}. Reimporte as camadas para atualizar a análise.`);
+    status('Planilhas e relatório restaurados do projeto.');
+    $('#pack-status').textContent = $('#pack-status2').textContent = `Restaurado do projeto (salvo em ${when})`;
+    packLastJson = packSig(buildPack());
+  } catch (e) { log('err', `Restaurar dados do projeto: ${e.message}`); }
+  finally { packRestoring = false; }
+}
+/* Relatório gerado → guarda HTML + metadados (sem camadas) */
+function rememberReport(M) {
+  const el = $('#reportContent');
+  state.savedReport = {
+    html: el.innerHTML, at: M.at.toISOString(), area: M.t.area, bufferM: M.bufferM, useSel: state.useSel,
+    zones: M.zoning ? M.zoning.entries.map(e => e.code) : [],
+    terrain: state.terrain ? state.terrain.geometry : null,
+    items: M.items.map(x => ({ name: x.L.name, geomType: x.L.geomType, sit: x.sit, grupo: x.grupo })),
+    pending: M.pending.map(l => ({ name: l.name, geomType: l.geomType, grupo: groupOf(l) }))
+  };
+  schedulePackSave('relatório atualizado');
+}
+function showSavedReport() {
+  const R = state.savedReport, el = $('#reportContent'), empty = $('#reportEmpty');
+  if (!R) return false;
+  el.innerHTML = R.html; el.hidden = false; empty.hidden = true;
+  $('#saved-banner').hidden = false;
+  $('#saved-banner-txt').textContent = `Relatório salvo em ${new Date(R.at).toLocaleString('pt-BR')}${R.zones.length ? ' · ' + R.zones.join(' / ') : ''}${R.useSel ? ' · uso ' + R.useSel : ''}. Para atualizar, reimporte as camadas e selecione o terreno (ou use o terreno salvo).`;
+  $('#btn-saved-terrain').hidden = !R.terrain || !!state.terrain;
+  $('#btn-pdf').disabled = state.busy;
+  return true;
+}
+$('#btn-saved-terrain').onclick = () => {
+  const R = state.savedReport; if (!R || !R.terrain) return;
+  $('#in-buffer').value = R.bufferM;
+  setTerrain({ type: 'Feature', geometry: R.terrain, properties: {} });
+  log('info', 'Terreno do relatório salvo aplicado.');
+  if (state.layers.length) renderReport(); else showSavedReport();
+};
+$('#btn-pack-clear').onclick = async () => {
+  try {
+    const g = (inIframe || window.__mockGi) ? await sdk().catch(() => null) : null;
+    const pa = g && g.state.get('selectedProjectApp');
+    if (g && pa && pa.app != null) { const pub = { ...(pa.public || {}) }; delete pub[PACK_KEY]; await g.rpc.invoke('updateProjectApp', [pa.app, { ...pa, public: pub }]); }
+    localStorage.removeItem(PACK_LOCAL);
+    state.savedReport = null; packLastJson = '';
+    $('#pack-status').textContent = $('#pack-status2').textContent = 'Nenhum dado salvo no projeto.';
+    log('ok', 'Dados salvos no projeto apagados (planilhas carregadas nesta sessão continuam abertas).');
+  } catch (e) { log('err', `Apagar dados salvos: ${e.message}`); }
+};
+
+/* =====================================================================
    INICIALIZAÇÃO
    ===================================================================== */
 log('info', `KV Dados Municipais ${APP_VERSION} iniciado.`);
 if (window.__mockGi || inIframe) {
-  sdk().then(() => setGiStatus(true, 'Giraffe')).catch(e => { setGiStatus(false, 'Sem Giraffe'); log('err', `SDK: ${e.message}`); });
+  sdk().then(() => { setGiStatus(true, 'Giraffe'); restorePack(); }).catch(e => { setGiStatus(false, 'Sem Giraffe'); log('err', `SDK: ${e.message}`); });
 } else {
   setGiStatus(false, 'Fora do Giraffe');
+  setTimeout(restorePack, 300);
   log('warn', 'Aberto fora do Giraffe: leitura, análise e download funcionam; seleção do terreno e importação exigem o painel do Giraffe.');
 }
 window.__kvDados = { state, setTerrain, ingest }; // diagnóstico
