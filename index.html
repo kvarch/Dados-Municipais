@@ -277,6 +277,10 @@ details.ows-proxy[open]{padding-bottom:12px}
 <main>
   <!-- ================= IMPORTAR DADOS ================= -->
   <section class="panel" id="panel-imp" role="tabpanel" aria-labelledby="tab-imp">
+    <div class="alert neutral" id="sync-banner" role="alert" hidden style="margin:12px 16px 0;display:grid;gap:8px;border-left:4px solid var(--md-sys-color-error)">
+      <span id="sync-txt"></span>
+      <div class="btn-grid"><button class="btn" id="sync-load">Carregar a versão do projeto</button><button class="btn primary" id="sync-keep">Manter a minha</button></div>
+    </div>
     <section class="section" aria-labelledby="h-terrain">
       <h2 id="h-terrain"><span class="step" aria-hidden="true">1</span>Terreno e buffer</h2>
       <button class="btn block" id="btn-pick"><span data-icon="target"></span>Selecionar terreno no mapa</button>
@@ -412,7 +416,7 @@ details.ows-proxy[open]{padding-bottom:12px}
       <div class="field"><label for="par-file">Planilha e aba</label><select id="par-file" disabled><option value="">Nenhuma planilha carregada</option></select></div>
       <button class="btn block" id="btn-par-open"><span data-icon="sheet"></span>Escolher planilha</button>
       <input type="file" id="in-par" hidden aria-hidden="true" accept=".xlsx,.xls,.ods,.csv">
-      <p class="info" id="pack-status" aria-live="polite">Planilhas e relatório são salvos automaticamente no projeto.</p>
+      <p class="info" id="pack-status" aria-live="polite">A sessão é salva automaticamente.</p>
       <dl class="slots" id="par-slots" hidden aria-live="polite">
         <dt>Índices urbanísticos</dt><dd id="slot-idx">—</dd>
         <dt>Usos permitidos</dt><dd id="slot-uso">—</dd>
@@ -443,8 +447,8 @@ details.ows-proxy[open]{padding-bottom:12px}
       <ul class="pcols" id="par-cols"></ul>
     </section>
     <section class="section" aria-labelledby="h-pack">
-      <h2 id="h-pack">Dados salvos no projeto</h2>
-      <p class="hint">As planilhas da lei (com a configuração das colunas e o vínculo com o zoneamento) e o último relatório ficam salvos no projeto do Giraffe. As camadas não são salvas: reimporte quando precisar atualizar a análise.</p>
+      <h2 id="h-pack">Dados salvos</h2>
+      <p class="hint">O app salva sozinho: terreno e buffer, camadas (só o entorno do terreno), servidor conectado, planilhas, configuração e último relatório. No seu navegador fica tudo; no projeto do Giraffe, para a equipe, as camadas do servidor vão como referência e são baixadas de novo por quem abrir. Se outra pessoa salvar uma versão mais nova, o app avisa em vez de sobrescrever.</p>
       <p class="info" id="pack-status2" aria-live="polite">—</p>
       <button class="btn block danger" id="btn-pack-clear"><span data-icon="trash"></span>Apagar dados salvos</button>
     </section>
@@ -496,7 +500,7 @@ details.ows-proxy[open]{padding-bottom:12px}
 <footer class="statusbar">
   <div class="status-msg" id="status-msg" role="status" aria-live="polite">Pronto</div>
   <div class="status-cell" id="gi-status" title="Conexão com o Giraffe"><span class="giraffe-dot" id="gi-dot" aria-hidden="true"></span><span id="gi-label">Giraffe</span></div>
-  <div class="status-cell version">Beta - V10 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V11 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
@@ -508,7 +512,7 @@ details.ows-proxy[open]{padding-bottom:12px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* =====================================================================
-   KV Dados Municipais — V10
+   KV Dados Municipais — V11
    Leitura local de Shapefile / GeoJSON / KML / KMZ, reprojeção para
    WGS84, recorte por buffer do terreno e importação no Giraffe.
    Bibliotecas: Turf 6.5.0 (MIT), proj4 2.11.0 (MIT), shpjs 4.0.4 (MIT),
@@ -517,7 +521,7 @@ details.ows-proxy[open]{padding-bottom:12px}
    ===================================================================== */
 (() => {
 'use strict';
-const APP_VERSION = 'V10';
+const APP_VERSION = 'V11';
 const TAG = 'kvloc_';
 const RAW_LIMIT = 3000;          // teto de feições por camada no modo "desenhar no projeto"
 const $ = s => document.querySelector(s);
@@ -827,6 +831,7 @@ async function ingest(items) {
     prog.hidden = true; state.busy = false;
     renderAll(); setBusyUI(); renderParams();
     analyze();
+    schedulePackSave('arquivos carregados');
   }
 }
 
@@ -943,6 +948,7 @@ $('#btn-clear').onclick = () => {
   state.layers = []; state.docs = []; layerSeq = 0; state.sheets = []; state.param = null; state.link = null; state.uses = null;
   renderParamPicker(); renderParams();
   log('info', 'Arquivos carregados foram limpos.'); status('Arquivos limpos.');
+  schedulePackSave('arquivos limpos');
   renderAll();
 };
 
@@ -1029,6 +1035,7 @@ function setTerrain(t, n = 1) {
   const area = turf.area(t), c = turf.centroid(t).geometry.coordinates;
   const zone = Math.floor((c[0] + 180) / 6) + 1;
   state.terrainInfo = { area, c, zone };
+  $('#btn-pick').innerHTML = svgIcon('target') + 'Trocar terreno';
   $('#terrain-out').hidden = false;
   $('#t-area').textContent = `${nf0.format(area)} m²${n > 1 ? ` (${n} polígonos unidos)` : ''}`;
   $('#t-cent').textContent = `${nf5.format(c[1])}, ${nf5.format(c[0])}`;
@@ -1036,6 +1043,7 @@ function setTerrain(t, n = 1) {
   log('ok', `Terreno: ${nf0.format(area)} m² · centroide ${c[1].toFixed(5)}, ${c[0].toFixed(5)}.`);
   updateBuffer();
   renderLayers(); // atualiza sugestão de EPSG nas camadas sem sistema
+  schedulePackSave('terreno');
   if (typeof renderOwsList === 'function' && ows.layers.length) renderOwsList();
 }
 function updateBuffer() {
@@ -1047,6 +1055,7 @@ function updateBuffer() {
   catch (e) { log('err', `Buffer: ${e.message}`); state.buffer = state.terrain; }
   showBuffer();
   analyze();
+  schedulePackSave('buffer');
 }
 const BUF_LAYER = 'Municipal · Buffer do terreno';
 async function showBuffer() {
@@ -1159,6 +1168,7 @@ function renderLayers() {
 }
 $('#layer-list').addEventListener('change', e => {
   const k = e.target.dataset.chk, c = e.target.dataset.color;
+  if (k || c) schedulePackSave('seleção de camadas');
   if (k) { const l = state.layers.find(x => x.key === k); if (l) l.checked = e.target.checked; $('#layers-info').textContent = `${state.layers.filter(l => l.checked).length} de ${state.layers.length} camada(s) selecionada(s).`; setBusyUI(); }
   if (c) { const l = state.layers.find(x => x.key === c); if (l) { l.color = e.target.value; e.target.closest('li').style.setProperty('--lc', l.color); } }
 });
@@ -1168,6 +1178,7 @@ $('#layer-list').addEventListener('click', e => {
   const code = +$(`[data-crs-sel="${l.key}"]`).value;
   try {
     applyCrs(l, { code, def: defForEpsg(code), label: labelForEpsg(code), how: 'escolhido' }, 'ok');
+    schedulePackSave('sistema de coordenadas');
     log('ok', `${l.name}: reprojetada de EPSG:${code} (${labelForEpsg(code)}) — ${nf0.format(l.features.length)} feições.`);
     renderLayers(); analyze();
   } catch (err) { log('err', `${l.name}: ${err.message}`); status(`${l.name}: EPSG:${code} não produz coordenadas válidas.`); }
@@ -1199,6 +1210,7 @@ $$('#mode-seg button').forEach(b => b.onclick = () => {
   state.mode = b.dataset.mode;
   $$('#mode-seg button').forEach(x => x.setAttribute('aria-pressed', x === b));
   $('#mode-hint').textContent = MODE_HINT[state.mode];
+  schedulePackSave('modo de inserção');
   if ($('#ows-mode')) $('#ows-mode').value = state.mode;
 });
 
@@ -1266,7 +1278,7 @@ async function importToGiraffe(sel) {
     log('ok', msg); status(msg); $('#imp-info').textContent = msg;
   } catch (e) {
     log('err', `Importação: ${e.message}`); status('Falha na importação — veja o Log.');
-  } finally { prog.hidden = true; state.busy = false; setBusyUI(); if (typeof renderOwsList === 'function') renderOwsList(); }
+  } finally { prog.hidden = true; state.busy = false; setBusyUI(); if (typeof renderOwsList === 'function') renderOwsList(); schedulePackSave('importação'); }
 }
 $('#btn-remove').onclick = async () => {
   try {
@@ -2650,15 +2662,64 @@ $('#btn-pdf').onclick = async () => {
 };
 
 /* =====================================================================
-   SALVAR NO PROJETO (V08) — planilhas da lei + último relatório
-   Guardados no JSON "public" do app no projeto (updateProjectApp).
-   Camadas NÃO são salvas: são reimportadas quando necessário.
+   PERSISTÊNCIA (V11)
+   • Por usuário: sessão completa no navegador (IndexedDB), por projeto —
+     planilhas, relatório, terreno/buffer, servidor e camadas (recortadas
+     no entorno do terreno). Sempre funciona.
+   • Compartilhada: mesma sessão no projeto do Giraffe (updateProjectApp,
+     JSON "public"), sem os dados pesados: camadas do servidor vão como
+     "receita" (endereço + nome) e são baixadas de novo por quem abrir;
+     camadas de arquivo só entram se forem pequenas.
+   • Conflito: não sobrescreve uma versão mais nova salva por outra pessoa
+     — mostra aviso para carregar a versão dela ou manter a sua.
    ===================================================================== */
 const PACK_KEY = 'kvDadosMunicipais';
-const PACK_LOCAL = 'kv-dadosmun-pack';
+const PACK_LOCAL = 'kv-dadosmun-pack';                 // legado V08 (fallback)
 const PACK_MAX = 900 * 1024;
-let packTimer = 0, packLastJson = '', packRestoring = false;
-state.savedReport = null;   // { html, at, area, zones, useSel, bufferM, terrain, items }
+let packTimer = 0, packRestoring = false, sigLocal = '', sigShared = '', sharedSeenAt = '', projKey = 'local';
+state.savedReport = null;
+state.conflict = null;
+/* ---------- armazenamento local (IndexedDB) ---------- */
+const IDB = {
+  db: null,
+  open() { if (this.db) return Promise.resolve(this.db); return new Promise((res, rej) => { const r = indexedDB.open('kv-dados-municipais', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => { this.db = r.result; res(this.db); }; r.onerror = () => rej(r.error); }); },
+  async run(mode, fn) { const db = await this.open(); return new Promise((res, rej) => { const tx = db.transaction('kv', mode), q = fn(tx.objectStore('kv')); tx.oncomplete = () => res(q && q.result); tx.onerror = () => rej(tx.error); }); },
+  get(k) { return this.run('readonly', s => s.get(k)); }, set(k, v) { return this.run('readwrite', s => s.put(v, k)); }, del(k) { return this.run('readwrite', s => s.delete(k)); }
+};
+const localKey = () => `P:${projKey}:sessao`;
+async function localGet() { try { const v = await IDB.get(localKey()); if (v) return v; try { return JSON.parse(localStorage.getItem(PACK_LOCAL) || 'null'); } catch (e3) { return null; } } catch (e) { try { return JSON.parse(localStorage.getItem(localKey()) || localStorage.getItem(PACK_LOCAL) || 'null'); } catch (e2) { return null; } } }
+async function localSet(v) { try { await IDB.set(localKey(), v); return 'navegador'; } catch (e) { localStorage.setItem(localKey(), JSON.stringify({ ...v, layers: (v.layers || []).map(l => ({ ...l, feats: undefined })) })); return 'navegador (sem camadas)'; } }
+/* ---------- projeto do Giraffe (mesma detecção do KV Pranchas) ---------- */
+function pickProjectId(p) {
+  const c = [p && p.id, p && p.properties && p.properties.id, p && p.properties && p.properties.projectId, p && p.project && p.project.id, p && p.projectId, p && p.project];
+  for (const x of c) { if (typeof x === 'number') return String(x); if (typeof x === 'string' && /^\d+$/.test(x)) return x; }
+  return null;
+}
+async function detectProject() {
+  if (!(inIframe || window.__mockGi)) return 'local';
+  try {
+    const g = await sdk();
+    for (let k = 0; k < 24; k++) {
+      for (const key of ['project', 'projectId', 'selectedProject', 'projectDetails', 'currentProject', 'selectedProjectApp']) {
+        let v = null; try { v = g.state.get(key); } catch (e) {}
+        const id = typeof v === 'number' || (typeof v === 'string' && /^\d+$/.test(v)) ? String(v) : pickProjectId(v);
+        if (id) { log('info', `Projeto identificado (${key}): ${id}.`); return 'giraffe:' + id; }
+      }
+      if (k === 3 || k === 16) { try { const d = await g.rpc.invoke('fetchProjectDetails', []); const id = pickProjectId(d) || pickProjectId(d && d.project); if (id) { log('info', `Projeto identificado (fetchProjectDetails): ${id}.`); return 'giraffe:' + id; } } catch (e) {} }
+      await new Promise(r => setTimeout(r, 250));
+    }
+  } catch (e) {}
+  try { const m = /\/project\/(\d+)/.exec(document.referrer); if (m) return 'giraffe:' + m[1]; } catch (e) {}
+  log('warn', 'Projeto do Giraffe não identificado — os dados locais ficam numa área comum deste navegador.');
+  return 'giraffe:desconhecido';
+}
+async function whoAmI() {
+  const e = (inIframe || window.__mockGi) ? await _getUserEmail().catch(() => '') : '';
+  if (e) return e;
+  let id = ''; try { id = localStorage.getItem('kv-dadosmun-uid'); if (!id) { id = 'usuario-' + Math.random().toString(36).slice(2, 8); localStorage.setItem('kv-dadosmun-uid', id); } } catch (er) {}
+  return id || 'usuário';
+}
+/* ---------- montagem da sessão ---------- */
 function packSheets() {
   const used = new Set([state.param && state.param.sheetId, state.uses && state.uses.sheetId].filter(Boolean));
   const docs = new Set(state.sheets.filter(s => used.has(s.id)).map(s => s.doc.path));
@@ -2671,108 +2732,169 @@ function packSheets() {
   });
   return out;
 }
-function buildPack() {
+const r7 = g => g ? reprojectGeom(g, c => [Math.round(c[0] * 1e7) / 1e7, Math.round(c[1] * 1e7) / 1e7]) : g;
+function featsForStore(L) {
+  if (!state.terrain) return L.features.slice(0, 5000);
+  const b = turf.bbox(state.buffer || state.terrain), dx = (b[2] - b[0]) * 0.5 + 0.002, dy = (b[3] - b[1]) * 0.5 + 0.002;
+  const v = [b[0] - dx, b[1] - dy, b[2] + dx, b[3] + dy];
+  return L.features.filter((f, i) => bbOverlap(L.bboxes[i], v));
+}
+function buildSession(withFeats) {
+  const layers = state.layers.filter(L => L.crsStatus !== 'unknown').map(L => {
+    const base = { name: L.name, path: L.path, source: L.source, color: L.color, checked: !!L.checked, crsLabel: L.crs ? L.crs.label : 'WGS 84', ows: L.ows || null };
+    if (L.ows && !withFeats) return base;                                      // servidor: receita, baixa de novo
+    return { ...base, feats: featsForStore(L).map(f => ({ type: 'Feature', geometry: r7(f.geometry), properties: f.properties })) };
+  });
   return {
-    v: 1, app: APP_VERSION, savedAt: new Date().toISOString(),
+    v: 2, app: APP_VERSION, savedAt: new Date().toISOString(), savedBy: '',
     sheets: packSheets(),
     param: state.param ? { sheetId: state.param.sheetId, cfg: state.param.cfg } : null,
     uses: state.uses ? { sheetId: state.uses.sheetId } : null,
-    link: state.link, useSel: state.useSel, pd: state.pd,
-    report: state.savedReport
+    link: state.link, useSel: state.useSel, pd: state.pd, report: state.savedReport,
+    terrain: state.terrain ? r7(state.terrain.geometry) : null, bufferM: state.bufferM, showBuf: $('#chk-showbuf').checked, mode: state.mode,
+    server: { url: $('#ows-url').value.trim(), proxy: owsCfg.proxy || '', forceProxy: !!owsCfg.forceProxy },
+    layers
   };
 }
-async function writePack(pack) {
-  const json = JSON.stringify(pack);
-  if (json.length > PACK_MAX) {
-    log('warn', `Dados para salvar no projeto com ${nf0.format(json.length / 1024)} kB (limite ${nf0.format(PACK_MAX / 1024)} kB). O relatório salvo foi omitido.`);
-    pack = { ...pack, report: null };
+const sigOf = s => JSON.stringify({ ...s, savedAt: 0, savedBy: 0, report: s.report ? { ...s.report, at: 0, html: s.report.html.replace(/<div class="report-footer">[\s\S]*?<\/div>/, '') } : null });
+function sharedFrom(full) {
+  // camadas de arquivo só seguem para o projeto se couberem; as do servidor vão como receita
+  let s = { ...full, layers: full.layers.map(l => l.ows ? { ...l, feats: undefined } : l) };
+  if (JSON.stringify(s).length > PACK_MAX) {
+    const omit = s.layers.filter(l => !l.ows).map(l => l.name);
+    s = { ...s, layers: s.layers.filter(l => l.ows), fileLayersOmitted: omit };
   }
-  const g = (inIframe || window.__mockGi) ? await sdk().catch(() => null) : null;
-  const pa = g && g.state.get('selectedProjectApp');
-  if (g && pa && pa.app != null) {
-    await g.rpc.invoke('updateProjectApp', [pa.app, { ...pa, public: { ...(pa.public || {}), [PACK_KEY]: pack } }]);
-    return 'projeto';
-  }
-  localStorage.setItem(PACK_LOCAL, JSON.stringify(pack));
-  return 'navegador';
+  if (JSON.stringify(s).length > PACK_MAX) s = { ...s, report: null };
+  return s;
 }
-const packSig = pack => JSON.stringify({ ...pack, savedAt: 0, report: pack.report ? { ...pack.report, at: 0, html: pack.report.html.replace(/<div class="report-footer">[\s\S]*?<\/div>/, '') } : null });
+/* ---------- gravação ---------- */
 function schedulePackSave(reason) {
   if (packRestoring) return;
   clearTimeout(packTimer);
-  packTimer = setTimeout(async () => {
-    const pack = buildPack();
-    const sig = packSig(pack);
-    if (sig === packLastJson) return;
-    try {
-      const where = await writePack(pack);
-      packLastJson = sig;
-      const msg = `Salvo no ${where} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}${pack.report ? ' (planilhas + relatório)' : ' (planilhas)'}`;
-      $('#pack-status').textContent = msg; $('#pack-status2').textContent = msg;
-      log('ok', `${msg}${reason ? ' — ' + reason : ''}.`);
-    } catch (e) {
-      log('err', `Salvar no projeto: ${e.message}. Verifique se o app tem permissão para atualizar o projeto.`);
-      $('#pack-status').textContent = 'Falha ao salvar no projeto — veja o Log.';
-    }
-  }, 1500);
+  packTimer = setTimeout(() => savePack(reason), 1500);
 }
-async function readPack() {
-  if (inIframe || window.__mockGi) {
+async function savePack(reason, force) {
+  const me = await whoAmI();
+  const full = buildSession(true); full.savedBy = me;
+  const msgs = [];
+  const sl = sigOf(full);
+  if (sl !== sigLocal || force) {
+    try { const w = await localSet(full); sigLocal = sl; msgs.push(w); } catch (e) { log('err', `Salvar no navegador: ${e.message}`); }
+  }
+  const sh = sharedFrom(full), ss = sigOf(sh);
+  if ((ss !== sigShared || force) && (inIframe || window.__mockGi)) {
     try {
       const g = await sdk();
-      for (let i = 0; i < 16; i++) {           // o estado do projeto pode chegar depois do carregamento do app
-        const pa = g.state.get('selectedProjectApp');
-        if (pa) return (pa.public && pa.public[PACK_KEY]) || null;
-        await new Promise(r => setTimeout(r, 500));
+      const pa = g.state.get('selectedProjectApp');
+      if (!pa || pa.app == null) throw new Error('configuração do app no projeto indisponível (selectedProjectApp)');
+      const remote = pa.public && pa.public[PACK_KEY];
+      if (!force && remote && remote.savedAt && remote.savedAt > sharedSeenAt && remote.savedBy && remote.savedBy !== me) {
+        state.conflict = remote; showConflict();
+        log('warn', `Projeto atualizado por ${remote.savedBy} em ${new Date(remote.savedAt).toLocaleString('pt-BR')}: sua sessão foi salva só no navegador, sem sobrescrever a dele.`);
+      } else {
+        await g.rpc.invoke('updateProjectApp', [pa.app, { ...pa, public: { ...(pa.public || {}), [PACK_KEY]: sh } }]);
+        sigShared = ss; sharedSeenAt = sh.savedAt; state.conflict = null; showConflict();
+        msgs.push('projeto');
+        if (sh.fileLayersOmitted && sh.fileLayersOmitted.length) log('info', `Camadas de arquivo grandes demais para o projeto (só no navegador): ${sh.fileLayersOmitted.join(', ')}.`);
       }
-      log('warn', 'Configuração do app no projeto (selectedProjectApp) indisponível — dados salvos não puderam ser lidos.');
-      return null;
-    } catch (e) { return null; }
+    } catch (e) { log('warn', `Salvar no projeto: ${e.message}. Seus dados ficaram salvos só neste navegador.`); }
   }
-  try { return JSON.parse(localStorage.getItem(PACK_LOCAL) || 'null'); } catch (e) { return null; }
+  if (msgs.length) {
+    const msg = `Salvo no ${msgs.join(' e no ')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    $('#pack-status').textContent = $('#pack-status2').textContent = msg;
+    log('ok', `${msg}${reason ? ' — ' + reason : ''}.`);
+  }
+}
+/* ---------- conflito ---------- */
+function showConflict() {
+  const c = state.conflict, b = $('#sync-banner');
+  b.hidden = !c;
+  if (c) $('#sync-txt').textContent = `${c.savedBy} salvou outra versão no projeto em ${new Date(c.savedAt).toLocaleString('pt-BR')}. Suas mudanças estão salvas só neste navegador.`;
+}
+$('#sync-load').onclick = async () => { const c = state.conflict; if (!c) return; state.conflict = null; showConflict(); await applySession(c, `projeto (versão de ${c.savedBy})`); sharedSeenAt = c.savedAt; sigShared = sigOf(c); schedulePackSave('versão do projeto carregada'); };
+$('#sync-keep').onclick = async () => { const c = state.conflict; if (!c) return; sharedSeenAt = c.savedAt; state.conflict = null; showConflict(); await savePack('mantida a versão local', true); };
+/* ---------- leitura e restauração ---------- */
+async function readShared() {
+  if (!(inIframe || window.__mockGi)) return null;
+  try {
+    const g = await sdk();
+    for (let i = 0; i < 16; i++) { const pa = g.state.get('selectedProjectApp'); if (pa) return (pa.public && pa.public[PACK_KEY]) || null; await new Promise(r => setTimeout(r, 500)); }
+    log('warn', 'Configuração do app no projeto (selectedProjectApp) indisponível — usando só os dados deste navegador.');
+  } catch (e) {}
+  return null;
 }
 async function restorePack() {
-  const pack = await readPack();
-  if (!pack || pack.v !== 1) return;
+  projKey = await detectProject();
+  const [loc, sh] = await Promise.all([localGet(), readShared()]);
+  if (sh && sh.savedAt) sharedSeenAt = sh.savedAt;
+  const me = await whoAmI();
+  let pick = null, from = '';
+  if (loc && sh) { if ((sh.savedAt || '') > (loc.savedAt || '') && sh.savedBy && sh.savedBy !== me) { pick = sh; from = `projeto (salvo por ${sh.savedBy})`; } else { pick = loc; from = 'navegador'; } }
+  else if (loc) { pick = loc; from = 'navegador'; } else if (sh) { pick = sh; from = `projeto${sh.savedBy ? ' (salvo por ' + sh.savedBy + ')' : ''}`; }
+  if (!pick) { $('#pack-status').textContent = $('#pack-status2').textContent = 'Nada salvo ainda neste projeto.'; return; }
+  await applySession(pick, from);
+  sigLocal = pick === loc ? sigOf(loc) : ''; sigShared = sh ? sigOf(sh) : '';
+}
+async function applySession(S, from) {
   packRestoring = true;
   try {
-    // planilhas: recria os workbooks a partir das matrizes salvas
+    // planilhas
     const wbs = new Map();
-    (pack.sheets || []).forEach(s => {
-      if (!wbs.has(s.doc)) wbs.set(s.doc, { name: s.docName, wb: { SheetNames: [], Sheets: {} } });
-      const W = wbs.get(s.doc).wb;
-      W.SheetNames.push(s.name); W.Sheets[s.name] = XLSX.utils.aoa_to_sheet(s.aoa);
-    });
+    (S.sheets || []).forEach(s => { if (!wbs.has(s.doc)) wbs.set(s.doc, { name: s.docName, wb: { SheetNames: [], Sheets: {} } }); const W = wbs.get(s.doc).wb; W.SheetNames.push(s.name); W.Sheets[s.name] = XLSX.utils.aoa_to_sheet(s.aoa); });
     wbs.forEach(({ name, wb }, path) => {
-      if (!state.docs.some(d => d.path === path)) state.docs.push({ path, name, ext: extOf(name), kind: 'Planilha', size: 0, _wbDone: true, restored: true, read: async () => { throw new Error('planilha restaurada do projeto'); } });
-      wb.SheetNames.forEach(sn => {
-        const id = path + '#' + sn, saved = pack.sheets.find(x => x.id === id);
-        if (!state.sheets.some(x => x.id === id)) state.sheets.push({ id, doc: state.docs.find(d => d.path === path), name: sn, wb, kind: saved && saved.kind });
-      });
+      if (!state.docs.some(d => d.path === path)) state.docs.push({ path, name, ext: extOf(name), kind: 'Planilha', size: 0, _wbDone: true, restored: true, read: async () => { throw new Error('planilha restaurada'); } });
+      wb.SheetNames.forEach(sn => { const id = path + '#' + sn, sv = S.sheets.find(x => x.id === id); const ex = state.sheets.findIndex(x => x.id === id); const rec = { id, doc: state.docs.find(d => d.path === path), name: sn, wb, kind: sv && sv.kind }; if (ex >= 0) state.sheets[ex] = rec; else state.sheets.push(rec); });
     });
-    if (pack.link) state.link = pack.link;
-    if (pack.uses && state.sheets.some(s => s.id === pack.uses.sheetId)) selectUses(pack.uses.sheetId);
-    if (pack.param && state.sheets.some(s => s.id === pack.param.sheetId)) selectSheet(pack.param.sheetId, { ...pack.param.cfg });
-    if (pack.link) state.link = pack.link;      // selectSheet/selectUses podem ter tentado o vínculo automático sem camadas
-    state.useSel = pack.useSel || ''; state.pd = pack.pd || 3; $('#in-pd').value = state.pd;
-    state.savedReport = pack.report || null;
-    renderParamPicker(); renderParams(); renderDocs(); renderSummary(); renderReport();
-    const when = pack.savedAt ? new Date(pack.savedAt).toLocaleString('pt-BR') : '';
-    const n = (pack.sheets || []).length;
-    log('ok', `Dados salvos no projeto restaurados (${when}): ${n} aba(s) de planilha${state.savedReport ? ' e o último relatório' : ''}. Reimporte as camadas para atualizar a análise.`);
-    status('Planilhas e relatório restaurados do projeto.');
-    $('#pack-status').textContent = $('#pack-status2').textContent = `Restaurado do projeto (salvo em ${when})`;
-    packLastJson = packSig(buildPack());
-  } catch (e) { log('err', `Restaurar dados do projeto: ${e.message}`); }
+    if (S.uses && state.sheets.some(s => s.id === S.uses.sheetId)) selectUses(S.uses.sheetId);
+    if (S.param && state.sheets.some(s => s.id === S.param.sheetId)) selectSheet(S.param.sheetId, { ...S.param.cfg });
+    state.useSel = S.useSel || ''; state.pd = S.pd || 3; $('#in-pd').value = state.pd;
+    state.savedReport = S.report || null;
+    if (S.mode) { const b = $(`#mode-seg button[data-mode="${S.mode}"]`); if (b) b.click(); }
+    if (S.server && S.server.url) $('#ows-url').value = S.server.url;
+    if (S.server && S.server.proxy && S.server.proxy !== owsCfg.proxy) {   // usa o mesmo Worker de quem salvou
+      owsCfg.proxy = S.server.proxy; owsCfg.forceProxy = !!S.server.forceProxy; saveOwsCfg();
+      $('#ows-proxy').value = owsCfg.proxy; $('#ows-force-proxy').checked = owsCfg.forceProxy;
+      log('info', `Proxy CORS da sessão salva: ${owsCfg.proxy}`);
+    }
+    // camadas com dados guardados
+    const recipes = [];
+    (S.layers || []).forEach(l => {
+      if (!l.feats) { if (l.ows) recipes.push(l); return; }
+      addLayer({ name: l.name, path: l.path, source: l.source, features: l.feats, crs: { code: 4326, def: 'EPSG:4326', label: l.crsLabel || 'WGS 84', how: 'restaurado' } });
+      const L = state.layers.find(x => x.path === l.path); if (L) { L.color = l.color || L.color; L.checked = !!l.checked; L.ows = l.ows || null; }
+    });
+    // terreno e buffer
+    if (typeof S.bufferM === 'number') $('#in-buffer').value = S.bufferM;
+    if (S.showBuf === false) $('#chk-showbuf').checked = false;
+    if (S.terrain) setTerrain({ type: 'Feature', geometry: S.terrain, properties: {} });
+    // camadas do servidor: baixa de novo (quem abrir o projeto vê o mesmo)
+    for (const r of recipes) {
+      try {
+        const feats = await wfsDownload(r.ows, state.terrain ? owsBBox() : null, 5000);
+        if (!feats.length) continue;
+        addLayer({ name: r.name, path: r.path, source: 'WFS', features: feats, crs: { code: 4326, def: 'EPSG:4326', label: labelForEpsg(4326), how: 'WFS (restaurado)' } });
+        const L = state.layers.find(x => x.path === r.path); if (L) { L.color = r.color || L.color; L.checked = !!r.checked; L.ows = r.ows; }
+      } catch (e) { log('warn', `${r.name}: não foi possível baixar de novo do servidor (${e.message}).`); }
+    }
+    if (S.link) state.link = S.link;
+    renderParamPicker(); renderParams(); renderAll();
+    await analyze();
+    renderReport();
+    const n = (S.layers || []).length, when = S.savedAt ? new Date(S.savedAt).toLocaleString('pt-BR') : '';
+    const msg = `Sessão restaurada do ${from} (${when}): ${(S.sheets || []).length} aba(s) de planilha, ${n} camada(s)${S.terrain ? ', terreno' : ''}${S.report ? ', relatório' : ''}.`;
+    log('ok', msg + (S.fileLayersOmitted && S.fileLayersOmitted.length ? ` Camadas de arquivo não compartilhadas (grandes): ${S.fileLayersOmitted.join(', ')} — reimporte.` : ''));
+    status('Sessão restaurada.');
+    $('#pack-status').textContent = $('#pack-status2').textContent = `Restaurado do ${from} — salvo em ${when}`;
+  } catch (e) { log('err', `Restaurar sessão: ${e.message}`); console.error(e); }
   finally { packRestoring = false; }
 }
-/* Relatório gerado → guarda HTML + metadados (sem camadas) */
+/* Relatório gerado → guarda HTML + metadados */
 function rememberReport(M) {
   const el = $('#reportContent');
   state.savedReport = {
     html: el.innerHTML, at: M.at.toISOString(), area: M.t.area, bufferM: M.bufferM, useSel: state.useSel,
     zones: M.zoning ? M.zoning.entries.map(e => e.code) : [],
-    terrain: state.terrain ? state.terrain.geometry : null,
+    terrain: state.terrain ? r7(state.terrain.geometry) : null,
     items: M.items.map(x => ({ name: x.L.name, geomType: x.L.geomType, sit: x.sit, grupo: x.grupo })),
     pending: M.pending.map(l => ({ name: l.name, geomType: l.geomType, grupo: groupOf(l) }))
   };
@@ -2800,10 +2922,10 @@ $('#btn-pack-clear').onclick = async () => {
     const g = (inIframe || window.__mockGi) ? await sdk().catch(() => null) : null;
     const pa = g && g.state.get('selectedProjectApp');
     if (g && pa && pa.app != null) { const pub = { ...(pa.public || {}) }; delete pub[PACK_KEY]; await g.rpc.invoke('updateProjectApp', [pa.app, { ...pa, public: pub }]); }
-    localStorage.removeItem(PACK_LOCAL);
-    state.savedReport = null; packLastJson = '';
-    $('#pack-status').textContent = $('#pack-status2').textContent = 'Nenhum dado salvo no projeto.';
-    log('ok', 'Dados salvos no projeto apagados (planilhas carregadas nesta sessão continuam abertas).');
+    localStorage.removeItem(PACK_LOCAL); try { localStorage.removeItem(localKey()); await IDB.del(localKey()); } catch (e2) {}
+    state.savedReport = null; sigLocal = sigShared = ''; clearTimeout(packTimer);
+    $('#pack-status').textContent = $('#pack-status2').textContent = 'Nenhum dado salvo (navegador e projeto).';
+    log('ok', 'Dados salvos apagados do navegador e do projeto (o que está aberto agora continua na tela até fechar o app).');
   } catch (e) { log('err', `Apagar dados salvos: ${e.message}`); }
 };
 
@@ -2903,6 +3025,7 @@ async function owsConnect() {
   const msg = `${ows.layers.length} camada(s) em ${P.host} (${nv} com vetor/WFS) · acesso ${ows.via === 'proxy' ? 'pelo proxy' : 'direto'}.`;
   $('#ows-info').textContent = msg; log('ok', `Servidor: ${msg}`); status(msg);
   owsCfg.recent = [raw, ...owsCfg.recent.filter(x => x !== raw)].slice(0, 8); saveOwsCfg(); renderOwsRecent();
+  schedulePackSave('servidor conectado');
   renderOwsList();
 }
 function renderOwsRecent() { $('#ows-recent').innerHTML = owsCfg.recent.map(u => `<option value="${esc(u)}"></option>`).join(''); }
@@ -2934,15 +3057,33 @@ function needsSwap(features, ref) {
   if (ref) { const d1 = Math.hypot(cx - ref[0], cy - ref[1]), d2 = Math.hypot(cy - ref[0], cx - ref[1]); return d2 < d1 * 0.5; }
   return cx > -35 && cx < 6 && cy < -34 && cy > -75;      // heurística Brasil: x parece latitude e y longitude
 }
+function owsBBox() {
+  const b = turf.bbox(state.buffer || state.terrain), dx = (b[2] - b[0]) * 0.25 + 0.001, dy = (b[3] - b[1]) * 0.25 + 0.001;
+  return [b[0] - dx, b[1] - dy, b[2] + dx, b[3] + dy];
+}
+/* Baixa uma camada WFS em GeoJSON (usado pela importação e pela restauração da sessão) */
+async function wfsDownload(info, bb, max, withCrs) {
+  Object.assign(ows, { base: info.base, extra: info.extra || {}, host: info.host });
+  const params = { service: 'WFS', version: '1.1.0', request: 'GetFeature', typeName: info.name, outputFormat: 'application/json', maxFeatures: String(max), srsName: 'EPSG:4326' };
+  if (bb) params.bbox = `${bb.map(v => v.toFixed(7)).join(',')},EPSG:4326`;
+  let txt = await owsFetch(owsUrl(params), 60000);
+  if (/^\s*</.test(txt)) {                       // XML: exceção ou formato JSON não aceito → tenta "json"
+    const ex = owsException(xmlDoc(txt));
+    if (ex && /format/i.test(ex)) txt = await owsFetch(owsUrl({ ...params, outputFormat: 'json' }), 60000);
+    else throw new Error(ex || 'o servidor não devolveu GeoJSON');
+  }
+  const fc = JSON.parse(txt);
+  let feats = (fc.features || []).filter(f => f && f.geometry);
+  const ref = state.terrainInfo ? state.terrainInfo.c : info.bbox ? [(info.bbox[0] + info.bbox[2]) / 2, (info.bbox[1] + info.bbox[3]) / 2] : null;
+  if (feats.length && needsSwap(feats, ref)) { feats = swapXY(feats); log('info', `${info.title}: eixos lat/lon invertidos pelo servidor — corrigido.`); }
+  return withCrs ? { feats, crs: crsFromGeoJSON(fc) } : feats;
+}
 async function owsLoadVectors() {
   const sel = ows.layers.filter(l => l.checked && l.wfs);
   if (!sel.length) return;
   const max = Math.max(10, Math.min(50000, +$('#ows-max').value || 5000));
-  let bb = null;
-  if (state.terrain) {
-    const b = turf.bbox(state.buffer || state.terrain), dx = (b[2] - b[0]) * 0.25 + 0.001, dy = (b[3] - b[1]) * 0.25 + 0.001;
-    bb = [b[0] - dx, b[1] - dy, b[2] + dx, b[3] + dy];
-  } else log('warn', `Sem terreno selecionado: baixando as camadas sem recorte (até ${nf0.format(max)} feições cada).`);
+  const bb = state.terrain ? owsBBox() : null;
+  if (!bb) log('warn', `Sem terreno selecionado: baixando as camadas sem recorte (até ${nf0.format(max)} feições cada).`);
   state.busy = true; setBusyUI(); renderOwsList();
   const prog = $('#load-prog'); prog.hidden = false; prog.value = 0;
   let ok = 0;
@@ -2952,22 +3093,14 @@ async function owsLoadVectors() {
       const l = sel[i];
       status(`WFS: ${l.title} (${i + 1}/${sel.length})…`);
       try {
-        const params = { service: 'WFS', version: '1.1.0', request: 'GetFeature', typeName: l.name, outputFormat: 'application/json', maxFeatures: String(max), srsName: 'EPSG:4326' };
-        if (bb) params.bbox = `${bb.map(v => v.toFixed(7)).join(',')},EPSG:4326`;
-        let txt = await owsFetch(owsUrl(params), 60000);
-        if (/^\s*</.test(txt)) {                       // XML: exceção ou formato JSON não aceito → tenta "json"
-          const ex = owsException(xmlDoc(txt));
-          if (ex && /format/i.test(ex)) txt = await owsFetch(owsUrl({ ...params, outputFormat: 'json' }), 60000);
-          else throw new Error(ex || 'o servidor não devolveu GeoJSON');
-        }
-        const fc = JSON.parse(txt);
-        let feats = (fc.features || []).filter(f => f && f.geometry);
+        const info = { base: ows.base, extra: ows.extra, host: ows.host, name: l.name, title: l.title, bbox: l.bbox };
+        const res = await wfsDownload(info, bb, max, true);
+        const feats = res.feats, crs = res.crs;
         if (!feats.length) { log('info', `${l.title}: nenhuma feição ${bb ? 'no entorno do terreno' : 'retornada'}.`); continue; }
-        const ref = state.terrainInfo ? state.terrainInfo.c : l.bbox ? [(l.bbox[0] + l.bbox[2]) / 2, (l.bbox[1] + l.bbox[3]) / 2] : null;
-        if (needsSwap(feats, ref)) { feats = swapXY(feats); log('info', `${l.title}: eixos lat/lon invertidos pelo servidor — corrigido.`); }
-        const crs = crsFromGeoJSON(fc);
-        loadedPaths.push(`WFS ${ows.host}/${l.name}`);
-        addLayer({ name: l.title, path: `WFS ${ows.host}/${l.name}`, source: 'WFS', features: feats, crs: crs && crs.code !== 4326 ? crs : { code: 4326, def: 'EPSG:4326', label: labelForEpsg(4326), how: 'WFS (srsName)' } });
+        const path = `WFS ${ows.host}/${l.name}`;
+        loadedPaths.push(path);
+        addLayer({ name: l.title, path, source: 'WFS', features: feats, crs: crs && crs.code !== 4326 ? crs : { code: 4326, def: 'EPSG:4326', label: labelForEpsg(4326), how: 'WFS (srsName)' } });
+        const LL = state.layers.find(x => x.path === path); if (LL) LL.ows = info;
         if (feats.length >= max) log('warn', `${l.title}: limite de ${nf0.format(max)} feições atingido — pode haver mais. ${bb ? 'Reduza o buffer ou aumente o limite.' : 'Selecione o terreno para baixar só o entorno.'}`);
         ok++;
       } catch (e) { log('err', `${l.title} (WFS): ${e.message}`); }
