@@ -501,7 +501,7 @@ details.ows-proxy[open]{padding-bottom:12px}
 <footer class="statusbar">
   <div class="status-msg" id="status-msg" role="status" aria-live="polite">Pronto</div>
   <div class="status-cell" id="gi-status" title="Conexão com o Giraffe"><span class="giraffe-dot" id="gi-dot" aria-hidden="true"></span><span id="gi-label">Giraffe</span></div>
-  <div class="status-cell version">Beta - V14 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V15 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
@@ -513,7 +513,7 @@ details.ows-proxy[open]{padding-bottom:12px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* =====================================================================
-   KV Dados Municipais — V14
+   KV Dados Municipais — V15
    Leitura local de Shapefile / GeoJSON / KML / KMZ, reprojeção para
    WGS84, recorte por buffer do terreno e importação no Giraffe.
    Bibliotecas: Turf 6.5.0 (MIT), proj4 2.11.0 (MIT), shpjs 4.0.4 (MIT),
@@ -522,7 +522,7 @@ details.ows-proxy[open]{padding-bottom:12px}
    ===================================================================== */
 (() => {
 'use strict';
-const APP_VERSION = 'V14';
+const APP_VERSION = 'V15';
 const TAG = 'kvloc_';
 const RAW_LIMIT = 3000;          // teto de feições por camada no modo "desenhar no projeto"
 const $ = s => document.querySelector(s);
@@ -1344,26 +1344,27 @@ $('#btn-download').onclick = async () => {
    ===================================================================== */
 const PARAM_ROLES = [
   ['zona', 'Zona (código)'], ['cat', 'Categoria de uso'], ['ca_min', 'CA mínimo'], ['ca_bas', 'CA básico'], ['ca_max', 'CA máximo'], ['ca', 'CA (único)'],
-  ['to', 'Taxa de ocupação'], ['tp', 'Taxa de permeabilidade'], ['gab', 'Gabarito / altura máxima'],
+  ['to', 'Taxa de ocupação'], ['tp', 'Taxa de permeabilidade'], ['timp', 'Taxa de impermeabilização máx.'], ['gab', 'Gabarito / altura máxima'],
   ['rec_f', 'Recuo de frente'], ['rec_l', 'Recuo lateral'], ['rec_fu', 'Recuo de fundo'], ['rec_lf', 'Recuos laterais e fundo'],
   ['lote', 'Lote mínimo'], ['testada', 'Testada mínima'], ['cota', 'Cota parte / densidade'], ['usos', 'Usos permitidos'],
   ['outro', 'Outro (exibir no relatório)'], ['ignorar', 'Ignorar']
 ];
 const ROLE_LABEL = Object.fromEntries(PARAM_ROLES);
-const NUMERIC_ROLES = new Set(['ca_min', 'ca_bas', 'ca_max', 'ca', 'to', 'tp', 'gab', 'rec_f', 'rec_l', 'rec_fu', 'rec_lf', 'lote', 'testada', 'cota']);
+const NUMERIC_ROLES = new Set(['timp', 'ca_min', 'ca_bas', 'ca_max', 'ca', 'to', 'tp', 'gab', 'rec_f', 'rec_l', 'rec_fu', 'rec_lf', 'lote', 'testada', 'cota']);
 const normH = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9<>=%]+/g, ' ').trim();
 const ROLE_RX = [
   ['cat', /^(CATEGORIAS?( DE USOS?)?|GRUPOS? DE USOS?|CATEGORIA DE ATIVIDADE|ATIVIDADES?)$|^CATEGORIAS? DE USO/],
   ['zona', /^(ZONAS?|ZONEAMENTO|SIGLAS?|ZONA DE USO|MACROZONAS?|COD(IGO)?( DA)? ZONA|ZONA SIGLA)\b/],
-  ['testada', /TESTADA|FRENTE MIN/],
+  ['testada', /^(?!.*RELACAO).*(TESTADA|FRENTE MIN)/],
   ['lote', /LOTE MIN|AREA MIN|MODULO MIN|LOTE PADRAO/],
   ['ca_min', /(\bC ?A\b|COEF\w*|INDICE DE APROVEITAMENTO).*MIN/],
   ['ca_bas', /(\bC ?A\b|COEF\w*|INDICE DE APROVEITAMENTO).*BAS/],
   ['ca_max', /(\bC ?A\b|COEF\w*|INDICE DE APROVEITAMENTO).*MAX/],
   ['ca', /^(C ?A|COEF\w*( DE)? APROVEITAMENTO|INDICE DE APROVEITAMENTO|I ?A)\b/],
   ['to', /\bT ?O\b|TAXA DE OCUPA|OCUPACAO/],
+  ['timp', /IMPERMEAB/],
   ['tp', /\bT ?P\b|PERMEAB/],
-  ['gab', /GABARITO|ALTURA|PAVIMENTOS|\bN DE PAV/],
+  ['gab', /^(?!ACRESCIMO).*(GABARITO|ALTURA|PAVIMENTOS|\bN DE PAV)/],
   ['rec_lf', /LATERA\w*.*FUNDO|FUNDO\w*.*LATERA/],
   ['rec_f', /RECUO.*(FRENT|FRONT)|^FRENTE|FRONTAL/],
   ['rec_l', /LATERA/],
@@ -1425,7 +1426,7 @@ function sheetMatrix(ws) {
   return aoa;
 }
 const transpose = a => { const W = Math.max(0, ...a.map(r => r.length)); return Array.from({ length: W }, (_, c) => a.map(r => r[c] ?? null)); };
-function headerScore(row) { let s = 0, z = false; row.forEach(v => { const r = typeof v === 'string' ? guessRole(v) : null; if (r) { s++; if (r === 'zona') z = true; } }); return s + (z ? 2 : 0); }
+function headerScore(row) { const roles = new Set(); row.forEach(v => { const r = typeof v === 'string' && v.length <= 80 ? guessRole(v) : null; /* textos longos não são cabeçalho; conta papéis distintos */ if (r) roles.add(r); }); return roles.size + (roles.has('zona') ? 2 : 0); }
 function bestHeader(aoa) {
   let best = { row: -1, score: 0 };
   const sc = aoa.slice(0, 25).map(headerScore);
@@ -1450,7 +1451,7 @@ function parseParamSheet(ws, cfg = {}) {
   const head = aoa[h] || [];
   // sub-cabeçalho: linha logo abaixo, sem números
   const next = aoa[h + 1] || [];
-  const subIsHeader = next.some(v => v != null) && !next.some(v => typeof v === 'number' || (typeof v === 'string' && parseCell(v).v != null));
+  const subIsHeader = next.some(v => v != null) && !next.some(v => typeof v === 'number' || (typeof v === 'string' && (parseCell(v).v != null || NA_RX.test(v.trim()) || v.trim().length > 60)));
   const W = Math.max(head.length, next.length);
   const cols = [];
   for (let c = 0; c < W; c++) {
@@ -1750,6 +1751,10 @@ function zoneValue(Z, e, role) {
     const c = cs.find(c => c.cond && condOk(c.cond, area) && e.row.cells[c.c].v != null) || cs.find(c => !c.cond && e.row.cells[c.c] && !e.row.cells[c.c].empty) || cs[0];
     if (c && e.row.cells[c.c] && !e.row.cells[c.c].empty) return { cell: e.row.cells[c.c], src: 'planilha', col: c };
   }
+  if (role === 'tp' && Z.P && e.row) {
+    const ti = zoneValue(Z, e, 'timp');
+    if (ti && ti.cell.v != null) { const f = fracOf(ti.cell); return { cell: { raw: nf0.format((1 - f) * 100) + '% (= 100% − ' + ti.cell.raw + ' de impermeabilização)', v: 1 - f, notes: ti.cell.notes || [], derived: true }, src: 'planilha', col: ti.col }; }
+  }
   const tr = role === 'ca_bas' || role === 'ca_max' ? 'ca' : role;
   if (e.txt[tr]) return { cell: e.txt[tr], src: 'texto' };
   return null;
@@ -1757,12 +1762,12 @@ function zoneValue(Z, e, role) {
 const fmtCell = (c, role) => {
   if (!c) return '—';
   if (c.na) return 'não se aplica';
-  if (c.v == null) return c.raw;
-  const n = ['to', 'tp'].includes(role) ? (c.pct || c.v > 1 ? nf3.format(c.v) + '%' : nf3.format(c.v)) : nf3.format(c.v);
+  if (c.v == null || c.derived) return c.raw;
+  const n = ['to', 'tp', 'timp'].includes(role) ? (c.pct || c.v > 1 ? nf3.format(c.v) + '%' : nf3.format(c.v)) : nf3.format(c.v);
   const u = ['rec_f', 'rec_l', 'rec_fu', 'rec_lf', 'testada'].includes(role) ? ' m' : role === 'lote' ? ' m²' : '';
   return n + u + (c.notes && c.notes.length ? ' ' + c.notes.map(x => `(${x})`).join('') : '');
 };
-const SUMMARY_ROLES = [['ca_bas', 'CA básico'], ['ca_max', 'CA máximo'], ['to', 'Taxa de ocupação'], ['tp', 'Taxa de permeabilidade'], ['gab', 'Gabarito / pavimentos'], ['rec_f', 'Recuo de frente'], ['rec_l', 'Recuo lateral'], ['rec_fu', 'Recuo de fundo'], ['rec_lf', 'Recuos laterais e fundo'], ['lote', 'Lote mínimo'], ['testada', 'Testada mínima']];
+const SUMMARY_ROLES = [['ca_bas', 'CA básico'], ['ca_max', 'CA máximo'], ['to', 'Taxa de ocupação'], ['timp', 'Taxa de impermeabilização máx.'], ['tp', 'Taxa de permeabilidade mín.'], ['gab', 'Gabarito / pavimentos'], ['rec_f', 'Recuo de frente'], ['rec_l', 'Recuo lateral'], ['rec_fu', 'Recuo de fundo'], ['rec_lf', 'Recuos laterais e fundo'], ['lote', 'Lote mínimo'], ['testada', 'Testada mínima']];
 /* Outras camadas de polígonos que enquadram o terreno (macrozona, setor, perímetros…) */
 function enquadramento(Z) {
   const out = [];
@@ -2171,7 +2176,7 @@ function renderZoningSummary(Z) {
         <tr><td class="k">Área computável máxima</td>${calc.map(c => `<td class="report-val-highlight">${f(c.caM)}</td>`).join('')}</tr>
         <tr><td class="k">Projeção máxima (TO)</td>${calc.map(c => `<td class="report-val-highlight">${f(c.to)}</td>`).join('')}</tr>
         <tr><td class="k">Área permeável mínima (TP)</td>${calc.map(c => `<td>${f(c.tp)}</td>`).join('')}</tr>
-        </table></div><div class="report-note">Estimativa sem incentivos, outorga onerosa ou condicionantes específicas. Quando o CA não distingue básico e máximo, o mesmo valor é usado nos dois.</div></div>`;
+        </table></div><div class="report-note">Área do terreno × índices da tabela. O CA máximo pode depender de outorga onerosa ou transferência do direito de construir, conforme a lei; não considera áreas não computáveis nem condicionantes específicas. Quando o CA não distingue básico e máximo, o mesmo valor é usado nos dois.</div></div>`;
     }
   }
   // 3. usos permitidos
