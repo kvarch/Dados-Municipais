@@ -322,6 +322,19 @@ details.ows-proxy[open]{padding-bottom:12px}
       </div>
       <input type="file" id="in-folder" webkitdirectory directory multiple hidden aria-hidden="true">
       <input type="file" id="in-files" multiple hidden aria-hidden="true" accept=".shp,.dbf,.prj,.cpg,.shx,.zip,.geojson,.json,.kml,.kmz,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ods,.odt,.txt,.md">
+        <div id="files-layers-wrap" hidden style="margin-top:16px">
+          <div class="filters">
+            <label class="sr-only" for="in-search">Filtrar camadas pelo nome</label>
+            <input type="search" id="in-search" placeholder="Filtrar camadas pelo nome">
+            <div class="seg" role="group" aria-label="Seleção rápida">
+              <button id="sel-all" aria-pressed="false">Todas</button>
+              <button id="sel-none" aria-pressed="false">Nenhuma</button>
+              <button id="sel-hit" aria-pressed="false" aria-label="Selecionar só as camadas com interferência no buffer">No buffer</button>
+            </div>
+          </div>
+          <ul class="layers" id="layer-list" aria-label="Camadas dos arquivos"></ul>
+          <p class="info" id="layers-info" aria-live="polite"></p>
+        </div>
       </div>
       <div id="src-ows" hidden>
         <div class="field"><label for="ows-url">Endereço do servidor (GetCapabilities ou URL base)</label>
@@ -340,19 +353,19 @@ details.ows-proxy[open]{padding-bottom:12px}
         <div id="ows-layers-wrap" hidden style="margin-top:12px">
           <label class="sr-only" for="ows-search">Filtrar camadas do servidor</label>
           <input type="search" id="ows-search" placeholder="Filtrar camadas do servidor">
+          <div class="seg" role="group" aria-label="Seleção rápida das camadas do servidor" style="margin-top:8px">
+            <button id="ows-sel-all" aria-pressed="false" aria-label="Selecionar todas as camadas visíveis na lista">Todas</button>
+            <button id="ows-sel-none" aria-pressed="false" aria-label="Desmarcar todas as camadas do servidor">Nenhuma</button>
+            <button id="ows-sel-vec" aria-pressed="false" aria-label="Selecionar só as camadas visíveis com vetor (WFS)">Só vetor</button>
+          </div>
           <ul class="layers" id="ows-list" aria-label="Camadas do servidor" style="margin-top:8px;max-height:320px;overflow-y:auto"></ul>
           <p class="info" id="ows-sel-info" aria-live="polite"></p>
-          <div class="row2" style="margin-top:8px">
-            <div class="field"><label for="ows-mode">Inserir no Giraffe como</label><select id="ows-mode"><option value="perm">Permanente</option><option value="temp">Temporária</option><option value="raw">Editável</option></select></div>
-            <div class="field"><label for="ows-max">Máx. feições por camada</label><input type="number" id="ows-max" value="5000" min="10" max="50000" step="500" inputmode="numeric"></div>
-          </div>
-          <p class="info warn" id="ows-need-terrain" hidden>Selecione o terreno (passo 1) para importar.</p>
-          <button class="btn primary block" id="btn-ows-load" disabled><span data-icon="layers"></span>Importar selecionadas</button>
+          <div class="field" style="margin-top:8px"><label for="ows-max">Máximo de feições por camada</label><input type="number" id="ows-max" value="5000" min="10" max="50000" step="500" inputmode="numeric"></div>
           <div class="btn-grid">
             <button class="btn" id="btn-ows-wms" disabled><span data-icon="map"></span>Ver no mapa</button>
             <button class="btn" id="btn-ows-copy" disabled><span data-icon="copy"></span>Copiar URL</button>
           </div>
-          <p class="hint" style="margin-top:8px">Baixa o entorno do buffer das camadas com vetor (WFS), insere no Giraffe e inclui na análise e no relatório. Camadas só de imagem: use "Ver no mapa" (experimental) ou "Copiar URL".</p>
+          <p class="hint" style="margin-top:8px">Camadas só de imagem (sem a etiqueta VETOR) não podem ser importadas: use "Ver no mapa" (experimental) ou "Copiar URL".</p>
         </div>
       </div>
       <div class="summary" id="files-summary" hidden aria-live="polite">
@@ -364,25 +377,8 @@ details.ows-proxy[open]{padding-bottom:12px}
       <button class="btn block danger" id="btn-clear" hidden style="margin-top:12px"><span data-icon="trash"></span>Limpar arquivos carregados</button>
     </section>
 
-    <section class="section" aria-labelledby="h-layers">
-      <h2 id="h-layers"><span class="step" aria-hidden="true">3</span>Camadas</h2>
-      <div class="filters">
-        <label class="sr-only" for="in-search">Filtrar camadas pelo nome</label>
-        <input type="search" id="in-search" placeholder="Filtrar camadas pelo nome">
-        <div class="seg" role="group" aria-label="Seleção rápida">
-          <button id="sel-all" aria-pressed="false">Todas</button>
-          <button id="sel-none" aria-pressed="false">Nenhuma</button>
-          <button id="sel-hit" aria-pressed="false" aria-label="Selecionar só as camadas com interferência no buffer">No buffer</button>
-        </div>
-      </div>
-      <ul class="layers" id="layer-list" aria-label="Camadas carregadas">
-        <li class="empty">Nenhuma camada carregada.</li>
-      </ul>
-      <p class="info" id="layers-info" aria-live="polite"></p>
-    </section>
-
     <section class="section" aria-labelledby="h-import">
-      <h2 id="h-import"><span class="step" aria-hidden="true">4</span>Importar e baixar</h2>
+      <h2 id="h-import"><span class="step" aria-hidden="true">3</span>Importar</h2>
       <div class="field">
         <span class="lbl" id="lbl-mode">Como inserir no Giraffe</span>
         <div class="seg" role="group" aria-labelledby="lbl-mode" id="mode-seg">
@@ -392,6 +388,7 @@ details.ows-proxy[open]{padding-bottom:12px}
         </div>
       </div>
       <p class="hint" id="mode-hint">Camada vetorial salva no projeto, com os atributos originais. Persiste entre sessões; reimportar substitui o conteúdo.</p>
+      <p class="info warn" id="imp-need" hidden></p>
       <button class="btn primary block" id="btn-import" disabled><span data-icon="layers"></span>Importar selecionadas</button>
       <div class="btn-grid">
         <button class="btn" id="btn-download" disabled aria-label="Baixar as camadas selecionadas em GeoJSON (.zip)"><span data-icon="download"></span>Baixar .zip</button>
@@ -500,7 +497,7 @@ details.ows-proxy[open]{padding-bottom:12px}
 <footer class="statusbar">
   <div class="status-msg" id="status-msg" role="status" aria-live="polite">Pronto</div>
   <div class="status-cell" id="gi-status" title="Conexão com o Giraffe"><span class="giraffe-dot" id="gi-dot" aria-hidden="true"></span><span id="gi-label">Giraffe</span></div>
-  <div class="status-cell version">Beta - V11 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V13 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
@@ -512,7 +509,7 @@ details.ows-proxy[open]{padding-bottom:12px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* =====================================================================
-   KV Dados Municipais — V11
+   KV Dados Municipais — V13
    Leitura local de Shapefile / GeoJSON / KML / KMZ, reprojeção para
    WGS84, recorte por buffer do terreno e importação no Giraffe.
    Bibliotecas: Turf 6.5.0 (MIT), proj4 2.11.0 (MIT), shpjs 4.0.4 (MIT),
@@ -521,7 +518,7 @@ details.ows-proxy[open]{padding-bottom:12px}
    ===================================================================== */
 (() => {
 'use strict';
-const APP_VERSION = 'V11';
+const APP_VERSION = 'V13';
 const TAG = 'kvloc_';
 const RAW_LIMIT = 3000;          // teto de feições por camada no modo "desenhar no projeto"
 const $ = s => document.querySelector(s);
@@ -1138,8 +1135,9 @@ function renderDocs() {
 function renderLayers() {
   const ul = $('#layer-list');
   const q = state.search.trim().toLowerCase();
-  const list = state.layers.filter(l => !q || l.name.toLowerCase().includes(q) || l.path.toLowerCase().includes(q));
-  if (!state.layers.length) ul.innerHTML = '<li class="empty">Nenhuma camada carregada.</li>';
+  const list = fileLayers().filter(l => !q || l.name.toLowerCase().includes(q) || l.path.toLowerCase().includes(q));
+  $('#files-layers-wrap').hidden = !fileLayers().length;
+  if (!fileLayers().length) ul.innerHTML = '<li class="empty">Nenhuma camada carregada.</li>';
   else if (!list.length) ul.innerHTML = '<li class="empty">Nenhuma camada corresponde ao filtro.</li>';
   else ul.innerHTML = list.map(l => {
     const n = l.features.length || (l.raw ? l.raw.length : 0);
@@ -1162,8 +1160,9 @@ function renderLayers() {
         <input type="color" class="lcolor" value="${l.color}" data-color="${l.key}" aria-label="Cor da camada ${esc(l.name)}" title="Cor da camada">
       </div>${fix}</li>`;
   }).join('');
-  const sel = state.layers.filter(l => l.checked);
-  $('#layers-info').textContent = state.layers.length ? `${sel.length} de ${state.layers.length} camada(s) selecionada(s).` : '';
+  if (typeof ows !== 'undefined' && ows.layers.length) renderOwsList();
+  const sel = fileLayers().filter(l => l.checked);
+  $('#layers-info').textContent = fileLayers().length ? `${sel.length} de ${fileLayers().length} camada(s) selecionada(s).` : '';
   renderSummary(); setBusyUI();
 }
 $('#layer-list').addEventListener('change', e => {
@@ -1184,7 +1183,7 @@ $('#layer-list').addEventListener('click', e => {
   } catch (err) { log('err', `${l.name}: ${err.message}`); status(`${l.name}: EPSG:${code} não produz coordenadas válidas.`); }
 });
 $('#in-search').addEventListener('input', e => { state.search = e.target.value; renderLayers(); });
-function visibleLayers() { const q = state.search.trim().toLowerCase(); return state.layers.filter(l => !q || l.name.toLowerCase().includes(q) || l.path.toLowerCase().includes(q)); }
+function visibleLayers() { const q = state.search.trim().toLowerCase(); return fileLayers().filter(l => !q || l.name.toLowerCase().includes(q) || l.path.toLowerCase().includes(q)); }
 $('#sel-all').onclick = () => { visibleLayers().forEach(l => { if (l.crsStatus !== 'unknown') l.checked = true; }); renderLayers(); };
 $('#sel-none').onclick = () => { visibleLayers().forEach(l => { l.checked = false; }); renderLayers(); };
 $('#sel-hit').onclick = () => {
@@ -1194,7 +1193,11 @@ $('#sel-hit').onclick = () => {
 
 function setBusyUI() {
   const sel = state.layers.filter(l => l.checked && l.crsStatus !== 'unknown');
-  $('#btn-import').disabled = state.busy || !sel.length || !state.terrain;
+  const ows_ = state.src === 'ows';
+  const have = ows_ ? (typeof ows !== 'undefined' && ows.layers.some(l => l.checked && l.wfs)) : fileLayers().some(l => l.checked && l.crsStatus !== 'unknown');
+  $('#btn-import').disabled = state.busy || !have || !state.terrain;
+  const need = !state.terrain ? 'Selecione o terreno (passo 1) para importar.' : !have ? (ows_ ? 'Marque camadas com a etiqueta VETOR na lista do servidor.' : 'Marque as camadas na lista dos arquivos.') : '';
+  $('#imp-need').textContent = need; $('#imp-need').hidden = !need || (!ows_ && !fileLayers().length) || (ows_ && !(typeof ows !== 'undefined' && ows.layers.length));
   $('#btn-download').disabled = state.busy || !sel.length;
   $('#btn-folder').disabled = $('#btn-files').disabled = state.busy;
   $('#btn-download').title = state.terrain ? 'Baixa as feições no buffer, em WGS84' : 'Sem terreno: baixa as camadas inteiras, convertidas para WGS84';
@@ -1211,7 +1214,6 @@ $$('#mode-seg button').forEach(b => b.onclick = () => {
   $$('#mode-seg button').forEach(x => x.setAttribute('aria-pressed', x === b));
   $('#mode-hint').textContent = MODE_HINT[state.mode];
   schedulePackSave('modo de inserção');
-  if ($('#ows-mode')) $('#ows-mode').value = state.mode;
 });
 
 /* =====================================================================
@@ -1240,7 +1242,9 @@ function layerFeaturesForExport(L, styled) {
   }
   return out;
 }
-$('#btn-import').onclick = () => importToGiraffe(state.layers.filter(l => l.checked && l.crsStatus !== 'unknown'));
+state.src = 'files';
+const fileLayers = () => state.layers.filter(l => l.source !== 'WFS');
+$('#btn-import').onclick = () => state.src === 'ows' ? owsLoadVectors() : importToGiraffe(fileLayers().filter(l => l.checked && l.crsStatus !== 'unknown'));
 async function importToGiraffe(sel) {
   if (!sel.length || !state.terrain) return;
   state.busy = true; setBusyUI();
@@ -3038,14 +3042,12 @@ function renderOwsList() {
     return `<li><div class="lrow" style="grid-template-columns:minmax(0,1fr) auto">
       <label for="${id}"><input type="checkbox" id="${id}" data-ows="${ows.layers.indexOf(l)}"${l.checked ? ' checked' : ''}>
         <span class="lname"><b title="${esc(l.name)}">${esc(l.title)}</b><small>${esc(l.name)}</small></span></label>
-      <span class="lcount" style="padding-right:8px">${l.wfs ? '<span class="badge ok">vetor</span>' : ''}${l.wms ? '<span class="badge" style="margin-top:2px">imagem</span>' : ''}</span>
+      <span class="lcount" style="padding-right:8px">${(() => { const L = state.layers.find(x => x.path === `WFS ${ows.host}/${l.name}`); return L && L.inBuf ? `<b>${nf0.format(L.inBuf.length)}</b><span>no buffer</span>${L.inTer.length ? `<span class="ter">${nf0.format(L.inTer.length)} no terreno</span>` : ''}` : ''; })()}${l.wfs ? '<span class="badge ok">vetor</span>' : ''}${l.wms ? '<span class="badge" style="margin-top:2px">imagem</span>' : ''}</span>
     </div></li>`;
   }).join('') + (list.length > 400 ? `<li class="empty">+ ${list.length - 400} camada(s) — refine o filtro.</li>` : '') : '<li class="empty">Nenhuma camada corresponde ao filtro.</li>';
   const sel = ows.layers.filter(l => l.checked);
-  $('#ows-sel-info').textContent = `${sel.length} selecionada(s) · ${sel.filter(l => l.wfs).length} com vetor`;
-  $('#btn-ows-load').disabled = !sel.some(l => l.wfs) || state.busy || !state.terrain;
-  $('#ows-need-terrain').hidden = !!state.terrain;
-  $('#ows-mode').value = state.mode;
+  $('#ows-sel-info').textContent = `${sel.length} selecionada(s) · ${sel.filter(l => l.wfs).length} com vetor${q ? ` · filtro: ${list.length} de ${ows.layers.length}` : ''}`;
+  setBusyUI();
   $('#btn-ows-wms').disabled = !sel.some(l => l.wms);
   $('#btn-ows-copy').disabled = !sel.some(l => l.wms);
 }
@@ -3160,6 +3162,7 @@ async function owsCopyWms() {
 $$('#src-seg button').forEach(b => b.onclick = () => {
   $$('#src-seg button').forEach(x => x.setAttribute('aria-pressed', x === b));
   $('#src-files').hidden = b.dataset.src !== 'files'; $('#src-ows').hidden = b.dataset.src !== 'ows';
+  state.src = b.dataset.src; setBusyUI();
 });
 $('#ows-proxy').value = owsCfg.proxy || '';
 $('#ows-force-proxy').checked = !!owsCfg.forceProxy;
@@ -3168,9 +3171,16 @@ $('#ows-force-proxy').addEventListener('change', e => { owsCfg.forceProxy = e.ta
 $('#btn-ows-connect').onclick = owsConnect;
 $('#ows-url').addEventListener('keydown', e => { if (e.key === 'Enter') owsConnect(); });
 $('#ows-search').addEventListener('input', e => { ows.search = e.target.value; renderOwsList(); });
+const owsVisible = () => { const q = ows.search.trim().toLowerCase(); return ows.layers.filter(l => !q || l.title.toLowerCase().includes(q) || l.name.toLowerCase().includes(q)); };
+function owsSelectInfo() {
+  const n = ows.layers.filter(l => l.checked && l.wfs).length;
+  if (n > 20) log('warn', `${n} camadas com vetor selecionadas: a importação pode demorar e pesar no projeto. Use o filtro para escolher só as necessárias.`);
+}
+$('#ows-sel-all').onclick = () => { owsVisible().forEach(l => { l.checked = true; }); renderOwsList(); owsSelectInfo(); };
+$('#ows-sel-none').onclick = () => { ows.layers.forEach(l => { l.checked = false; }); renderOwsList(); };
+$('#ows-sel-vec').onclick = () => { ows.layers.forEach(l => { l.checked = false; }); owsVisible().forEach(l => { if (l.wfs) l.checked = true; }); renderOwsList(); owsSelectInfo(); };
 $('#ows-list').addEventListener('change', e => { const i = e.target.dataset.ows; if (i == null) return; ows.layers[+i].checked = e.target.checked; renderOwsList(); });
-$('#btn-ows-load').onclick = owsLoadVectors;
-$('#ows-mode').addEventListener('change', e => { const b = $(`#mode-seg button[data-mode="${e.target.value}"]`); if (b) b.click(); });
+
 $('#btn-ows-wms').onclick = owsShowWms;
 $('#btn-ows-copy').onclick = owsCopyWms;
 $('#btn-ows-test').onclick = async () => {
