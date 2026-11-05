@@ -227,6 +227,9 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 .pnotes dt{font-weight:600;color:var(--md-sys-color-primary)}
 .pnotes dd{margin:0;color:var(--md-sys-color-on-surface-variant)}
 .info.warn{color:var(--md-sys-color-error)}
+details.ows-proxy{margin-top:8px;border:1px solid var(--md-sys-color-outline-variant);padding:0 12px}
+details.ows-proxy summary{min-height:48px;display:flex;align-items:center;cursor:pointer;font-size:12.5px;font-weight:500}
+details.ows-proxy[open]{padding-bottom:12px}
 .slots{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;margin:12px 0 0;padding:10px 12px;font-size:12.5px;border-left:4px solid var(--md-sys-color-primary-container);background:var(--md-sys-color-surface-container-low)}
 .slots dt{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--md-sys-color-on-surface-variant);margin-top:4px}
 .slots dd{margin:0;overflow-wrap:anywhere}
@@ -275,7 +278,12 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
   <!-- ================= IMPORTAR DADOS ================= -->
   <section class="panel" id="panel-imp" role="tabpanel" aria-labelledby="tab-imp">
     <section class="section" aria-labelledby="h-files">
-      <h2 id="h-files"><span class="step" aria-hidden="true">1</span>Arquivos do município</h2>
+      <h2 id="h-files"><span class="step" aria-hidden="true">1</span>Dados do município</h2>
+      <div class="seg" role="group" aria-label="Origem dos dados" id="src-seg" style="margin-bottom:12px">
+        <button data-src="files" aria-pressed="true">Arquivos</button>
+        <button data-src="ows" aria-pressed="false">Servidor WMS/WFS</button>
+      </div>
+      <div id="src-files">
       <div class="drop" id="drop" aria-describedby="drop-desc">
         <span data-icon="upload"></span>
         <strong>Arraste uma pasta ou arquivos aqui</strong>
@@ -287,6 +295,35 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
       </div>
       <input type="file" id="in-folder" webkitdirectory directory multiple hidden aria-hidden="true">
       <input type="file" id="in-files" multiple hidden aria-hidden="true" accept=".shp,.dbf,.prj,.cpg,.shx,.zip,.geojson,.json,.kml,.kmz,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ods,.odt,.txt,.md">
+      </div>
+      <div id="src-ows" hidden>
+        <div class="field"><label for="ows-url">Endereço do servidor (GetCapabilities ou URL base)</label>
+          <input type="text" id="ows-url" list="ows-recent" inputmode="url" autocomplete="off" placeholder="https://…/geoserver/ows?service=wms&request=GetCapabilities"></div>
+        <datalist id="ows-recent"></datalist>
+        <button class="btn primary block" id="btn-ows-connect"><span data-icon="globe"></span>Conectar</button>
+        <details class="ows-proxy">
+          <summary>Proxy CORS (Cloudflare Worker)</summary>
+          <p class="hint">O app tenta acessar o servidor direto. Se a prefeitura bloquear por CORS, repete automaticamente pelo Worker — como no GeoSampa Importer.</p>
+          <div class="field"><label for="ows-proxy">URL do Worker</label><input type="text" id="ows-proxy" inputmode="url" autocomplete="off" placeholder="https://seu-worker.workers.dev"></div>
+          <label class="check"><input type="checkbox" id="ows-force-proxy">Usar sempre o proxy</label>
+          <button class="btn block" id="btn-ows-test">Testar proxy</button>
+          <p class="info" id="ows-proxy-st" aria-live="polite"></p>
+        </details>
+        <p class="info" id="ows-info" aria-live="polite"></p>
+        <div id="ows-layers-wrap" hidden style="margin-top:12px">
+          <label class="sr-only" for="ows-search">Filtrar camadas do servidor</label>
+          <input type="search" id="ows-search" placeholder="Filtrar camadas do servidor">
+          <ul class="layers" id="ows-list" aria-label="Camadas do servidor" style="margin-top:8px;max-height:320px;overflow-y:auto"></ul>
+          <p class="info" id="ows-sel-info" aria-live="polite"></p>
+          <div class="field" style="margin-top:8px"><label for="ows-max">Máximo de feições por camada</label><input type="number" id="ows-max" value="5000" min="10" max="50000" step="500" inputmode="numeric"></div>
+          <button class="btn primary block" id="btn-ows-load" disabled><span data-icon="download"></span>Carregar vetores (WFS)</button>
+          <div class="btn-grid">
+            <button class="btn" id="btn-ows-wms" disabled><span data-icon="map"></span>Ver no mapa</button>
+            <button class="btn" id="btn-ows-copy" disabled><span data-icon="copy"></span>Copiar URL</button>
+          </div>
+          <p class="hint" style="margin-top:8px">Vetores entram na lista de camadas e no relatório como os arquivos. Com o terreno selecionado, baixa só o entorno do buffer. "Ver no mapa" mostra a imagem WMS (experimental).</p>
+        </div>
+      </div>
       <div class="summary" id="files-summary" hidden aria-live="polite">
         <div><b id="sum-layers">0</b><span>camadas</span></div>
         <div><b id="sum-feats">0</b><span>feições</span></div>
@@ -455,7 +492,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 <footer class="statusbar">
   <div class="status-msg" id="status-msg" role="status" aria-live="polite">Pronto</div>
   <div class="status-cell" id="gi-status" title="Conexão com o Giraffe"><span class="giraffe-dot" id="gi-dot" aria-hidden="true"></span><span id="gi-label">Giraffe</span></div>
-  <div class="status-cell version">Beta - V08 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V09 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
@@ -467,7 +504,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* =====================================================================
-   KV Dados Municipais — V08
+   KV Dados Municipais — V09
    Leitura local de Shapefile / GeoJSON / KML / KMZ, reprojeção para
    WGS84, recorte por buffer do terreno e importação no Giraffe.
    Bibliotecas: Turf 6.5.0 (MIT), proj4 2.11.0 (MIT), shpjs 4.0.4 (MIT),
@@ -476,7 +513,7 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
    ===================================================================== */
 (() => {
 'use strict';
-const APP_VERSION = 'V08';
+const APP_VERSION = 'V09';
 const TAG = 'kvloc_';
 const RAW_LIMIT = 3000;          // teto de feições por camada no modo "desenhar no projeto"
 const $ = s => document.querySelector(s);
@@ -506,6 +543,8 @@ const ICONS = {
   copy: '<rect width="14" height="14" x="8" y="8"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+  map: '<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
   contrast: '<circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/>'
 };
 const svgIcon = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[n] || ''}</svg>`;
@@ -2761,6 +2800,238 @@ $('#btn-pack-clear').onclick = async () => {
     log('ok', 'Dados salvos no projeto apagados (planilhas carregadas nesta sessão continuam abertas).');
   } catch (e) { log('err', `Apagar dados salvos: ${e.message}`); }
 };
+
+/* =====================================================================
+   SERVIDOR ONLINE — WMS / WFS (V09)
+   GetCapabilities WMS + WFS, vetores via WFS GetFeature (GeoJSON) e
+   visualização WMS no mapa. CORS: tenta direto; se bloquear, repete
+   pelo Cloudflare Worker (modo ?url= para dados; modo caminho para tiles).
+   ===================================================================== */
+const OWS_LS = 'kv-dadosmun-ows';
+const OWS_DEFAULT_PROXY = 'https://geosampagiraffe.dimitre-gallego.workers.dev';
+const ows = { base: '', extra: {}, host: '', layers: [], via: '', wfsVersion: '1.1.0', search: '' };
+const owsCfg = (() => { try { return JSON.parse(localStorage.getItem(OWS_LS) || 'null') || {}; } catch (e) { return {}; } })();
+owsCfg.recent = owsCfg.recent || []; if (owsCfg.proxy === undefined) owsCfg.proxy = OWS_DEFAULT_PROXY;
+const saveOwsCfg = () => { try { localStorage.setItem(OWS_LS, JSON.stringify(owsCfg)); } catch (e) {} };
+const owsProxy = () => (owsCfg.proxy || '').trim().replace(/\/+$/, '');
+const OWS_STD = new Set(['service', 'version', 'request', 'layers', 'typename', 'typenames', 'bbox', 'srs', 'crs', 'format', 'outputformat']);
+function owsParseInput(txt) {
+  const u = new URL(txt.trim());
+  const extra = {};
+  u.searchParams.forEach((v, k) => { if (!OWS_STD.has(k.toLowerCase())) extra[k] = v; });
+  return { base: u.origin + u.pathname, extra, host: u.host, hint: (u.searchParams.get('service') || u.searchParams.get('SERVICE') || '').toUpperCase() };
+}
+function owsUrl(params) {
+  const q = new URLSearchParams({ ...ows.extra, ...params });
+  return ows.base + '?' + q.toString();
+}
+/* fetch com fallback de CORS pelo Worker */
+async function owsFetch(url, timeout = 30000) {
+  const proxy = owsProxy(), force = !!owsCfg.forceProxy;
+  const go = async u => { const r = await fetch(u, { signal: AbortSignal.timeout(timeout) }); if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; } return r.text(); };
+  if (!force) {
+    try { const t = await go(url); ows.via = 'direto'; return t; }
+    catch (e) {
+      if (e.status) throw e;                                   // erro HTTP real do servidor
+      if (!proxy) throw new Error(`acesso direto bloqueado (provável CORS: ${e.message}) — configure o proxy`);
+      log('warn', `Acesso direto a ${ows.host} bloqueado (${e.name === 'TimeoutError' ? 'tempo esgotado' : 'provável CORS'}). Repetindo pelo proxy.`);
+    }
+  }
+  if (!proxy) throw new Error('proxy não configurado');
+  try { const t = await go(`${proxy}?url=${encodeURIComponent(url)}`); ows.via = 'proxy'; return t; }
+  catch (e) { throw new Error(`pelo proxy: ${e.message}${e.status === 403 || e.status === 400 ? ' — o Worker pode aceitar só domínios autorizados (ex.: GeoSampa). Inclua ' + ows.host + ' na lista do Worker.' : ''}`); }
+}
+const xmlDoc = t => { const d = new DOMParser().parseFromString(t, 'text/xml'); if (d.getElementsByTagName('parsererror').length) throw new Error('resposta não é XML válido'); return d; };
+const kids = (el, tag) => [...el.children].filter(c => c.localName === tag);
+const kid = (el, tag) => kids(el, tag)[0] || null;
+const txtOf = el => el ? el.textContent.trim() : '';
+function owsException(d) {
+  const ex = d.getElementsByTagNameNS('*', 'ServiceException')[0] || d.getElementsByTagNameNS('*', 'ExceptionText')[0];
+  return ex ? txtOf(ex).slice(0, 200) : null;
+}
+function parseWmsCaps(d) {
+  const out = [];
+  [...d.getElementsByTagNameNS('*', 'Layer')].forEach(L => {
+    const name = txtOf(kid(L, 'Name')); if (!name) return;
+    let bb = null;
+    const ex = kid(L, 'EX_GeographicBoundingBox');
+    if (ex) bb = ['westBoundLongitude', 'southBoundLatitude', 'eastBoundLongitude', 'northBoundLatitude'].map(t => +txtOf(kid(ex, t)));
+    const ll = kid(L, 'LatLonBoundingBox');
+    if (!bb && ll) bb = ['minx', 'miny', 'maxx', 'maxy'].map(a => +ll.getAttribute(a));
+    out.push({ name, title: txtOf(kid(L, 'Title')) || name, bbox: bb && bb.every(isFinite) ? bb : null, queryable: L.getAttribute('queryable') === '1' });
+  });
+  return out;
+}
+function parseWfsCaps(d) {
+  const ver = (d.documentElement.getAttribute('version') || '1.1.0');
+  return { ver, types: [...d.getElementsByTagNameNS('*', 'FeatureType')].map(F => {
+    const name = txtOf(kid(F, 'Name')); if (!name) return null;
+    let bb = null;
+    const w = kid(F, 'WGS84BoundingBox');
+    if (w) { const lo = txtOf(kid(w, 'LowerCorner')).split(/\s+/).map(Number), up = txtOf(kid(w, 'UpperCorner')).split(/\s+/).map(Number); bb = [lo[0], lo[1], up[0], up[1]]; }
+    const ll = kid(F, 'LatLongBoundingBox');
+    if (!bb && ll) bb = ['minx', 'miny', 'maxx', 'maxy'].map(a => +ll.getAttribute(a));
+    return { name, title: txtOf(kid(F, 'Title')) || name, bbox: bb && bb.every(isFinite) ? bb : null };
+  }).filter(Boolean) };
+}
+async function owsConnect() {
+  const raw = $('#ows-url').value.trim();
+  if (!raw) { $('#ows-info').textContent = 'Informe o endereço do servidor.'; return; }
+  let P; try { P = owsParseInput(raw); } catch (e) { $('#ows-info').textContent = 'Endereço inválido.'; return; }
+  Object.assign(ows, { base: P.base, extra: P.extra, host: P.host, layers: [] });
+  const btn = $('#btn-ows-connect'); btn.disabled = true;
+  $('#ows-info').textContent = `Conectando a ${P.host}…`; status('Lendo GetCapabilities…');
+  const [wms, wfs] = await Promise.allSettled([
+    owsFetch(owsUrl({ service: 'WMS', version: '1.3.0', request: 'GetCapabilities' })).then(t => { const d = xmlDoc(t); const ex = owsException(d); if (ex) throw new Error(ex); return parseWmsCaps(d); }),
+    owsFetch(owsUrl({ service: 'WFS', version: '1.1.0', request: 'GetCapabilities' })).then(t => { const d = xmlDoc(t); const ex = owsException(d); if (ex) throw new Error(ex); return parseWfsCaps(d); })
+  ]);
+  btn.disabled = false;
+  const map = new Map();
+  if (wms.status === 'fulfilled') wms.value.forEach(l => map.set(l.name, { name: l.name, title: l.title, bbox: l.bbox, wms: true, wfs: false }));
+  if (wfs.status === 'fulfilled') { ows.wfsVersion = wfs.value.ver; wfs.value.types.forEach(t => { const e = map.get(t.name) || { name: t.name, title: t.title, bbox: t.bbox, wms: false }; e.wfs = true; if (!e.bbox) e.bbox = t.bbox; map.set(t.name, e); }); }
+  ows.layers = [...map.values()].sort((a, b) => a.title.localeCompare(b.title, 'pt'));
+  if (wms.status === 'rejected') log(wfs.status === 'fulfilled' ? 'warn' : 'err', `WMS GetCapabilities (${P.host}): ${wms.reason.message}`);
+  if (wfs.status === 'rejected') log(wms.status === 'fulfilled' ? 'warn' : 'err', `WFS GetCapabilities (${P.host}): ${wfs.reason.message}${wms.status === 'fulfilled' ? ' — sem WFS, as camadas só podem ser vistas como imagem.' : ''}`);
+  if (!ows.layers.length) { $('#ows-info').textContent = 'Não foi possível ler as camadas do servidor — veja o Log.'; status('Falha ao conectar ao servidor.'); renderOwsList(); return; }
+  const nv = ows.layers.filter(l => l.wfs).length;
+  const msg = `${ows.layers.length} camada(s) em ${P.host} (${nv} com vetor/WFS) · acesso ${ows.via === 'proxy' ? 'pelo proxy' : 'direto'}.`;
+  $('#ows-info').textContent = msg; log('ok', `Servidor: ${msg}`); status(msg);
+  owsCfg.recent = [raw, ...owsCfg.recent.filter(x => x !== raw)].slice(0, 8); saveOwsCfg(); renderOwsRecent();
+  renderOwsList();
+}
+function renderOwsRecent() { $('#ows-recent').innerHTML = owsCfg.recent.map(u => `<option value="${esc(u)}"></option>`).join(''); }
+function renderOwsList() {
+  const wrap = $('#ows-layers-wrap'); wrap.hidden = !ows.layers.length;
+  const q = ows.search.trim().toLowerCase();
+  const list = ows.layers.filter(l => !q || l.title.toLowerCase().includes(q) || l.name.toLowerCase().includes(q));
+  $('#ows-list').innerHTML = list.length ? list.slice(0, 400).map((l, i) => {
+    const id = 'ows-' + ows.layers.indexOf(l);
+    return `<li><div class="lrow" style="grid-template-columns:minmax(0,1fr) auto">
+      <label for="${id}"><input type="checkbox" id="${id}" data-ows="${ows.layers.indexOf(l)}"${l.checked ? ' checked' : ''}>
+        <span class="lname"><b title="${esc(l.name)}">${esc(l.title)}</b><small>${esc(l.name)}</small></span></label>
+      <span class="lcount" style="padding-right:8px">${l.wfs ? '<span class="badge ok">vetor</span>' : ''}${l.wms ? '<span class="badge" style="margin-top:2px">imagem</span>' : ''}</span>
+    </div></li>`;
+  }).join('') + (list.length > 400 ? `<li class="empty">+ ${list.length - 400} camada(s) — refine o filtro.</li>` : '') : '<li class="empty">Nenhuma camada corresponde ao filtro.</li>';
+  const sel = ows.layers.filter(l => l.checked);
+  $('#ows-sel-info').textContent = `${sel.length} selecionada(s) · ${sel.filter(l => l.wfs).length} com vetor`;
+  $('#btn-ows-load').disabled = !sel.some(l => l.wfs) || state.busy;
+  $('#btn-ows-wms').disabled = !sel.some(l => l.wms);
+  $('#btn-ows-copy').disabled = !sel.some(l => l.wms);
+}
+/* Eixos: alguns servidores devolvem lat/lon em EPSG:4326 */
+function swapXY(features) { return features.map(f => ({ ...f, geometry: f.geometry ? reprojectGeom(f.geometry, c => [c[1], c[0]]) : null })); }
+function needsSwap(features, ref) {
+  const b = rawBbox(features); if (!isFinite(b[0])) return false;
+  const cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
+  if (ref) { const d1 = Math.hypot(cx - ref[0], cy - ref[1]), d2 = Math.hypot(cy - ref[0], cx - ref[1]); return d2 < d1 * 0.5; }
+  return cx > -35 && cx < 6 && cy < -34 && cy > -75;      // heurística Brasil: x parece latitude e y longitude
+}
+async function owsLoadVectors() {
+  const sel = ows.layers.filter(l => l.checked && l.wfs);
+  if (!sel.length) return;
+  const max = Math.max(10, Math.min(50000, +$('#ows-max').value || 5000));
+  let bb = null;
+  if (state.terrain) {
+    const b = turf.bbox(state.buffer || state.terrain), dx = (b[2] - b[0]) * 0.25 + 0.001, dy = (b[3] - b[1]) * 0.25 + 0.001;
+    bb = [b[0] - dx, b[1] - dy, b[2] + dx, b[3] + dy];
+  } else log('warn', `Sem terreno selecionado: baixando as camadas sem recorte (até ${nf0.format(max)} feições cada).`);
+  state.busy = true; setBusyUI(); renderOwsList();
+  const prog = $('#load-prog'); prog.hidden = false; prog.value = 0;
+  let ok = 0;
+  try {
+    for (let i = 0; i < sel.length; i++) {
+      const l = sel[i];
+      status(`WFS: ${l.title} (${i + 1}/${sel.length})…`);
+      try {
+        const params = { service: 'WFS', version: '1.1.0', request: 'GetFeature', typeName: l.name, outputFormat: 'application/json', maxFeatures: String(max), srsName: 'EPSG:4326' };
+        if (bb) params.bbox = `${bb.map(v => v.toFixed(7)).join(',')},EPSG:4326`;
+        let txt = await owsFetch(owsUrl(params), 60000);
+        if (/^\s*</.test(txt)) {                       // XML: exceção ou formato JSON não aceito → tenta "json"
+          const ex = owsException(xmlDoc(txt));
+          if (ex && /format/i.test(ex)) txt = await owsFetch(owsUrl({ ...params, outputFormat: 'json' }), 60000);
+          else throw new Error(ex || 'o servidor não devolveu GeoJSON');
+        }
+        const fc = JSON.parse(txt);
+        let feats = (fc.features || []).filter(f => f && f.geometry);
+        if (!feats.length) { log('info', `${l.title}: nenhuma feição ${bb ? 'no entorno do terreno' : 'retornada'}.`); continue; }
+        const ref = state.terrainInfo ? state.terrainInfo.c : l.bbox ? [(l.bbox[0] + l.bbox[2]) / 2, (l.bbox[1] + l.bbox[3]) / 2] : null;
+        if (needsSwap(feats, ref)) { feats = swapXY(feats); log('info', `${l.title}: eixos lat/lon invertidos pelo servidor — corrigido.`); }
+        const crs = crsFromGeoJSON(fc);
+        addLayer({ name: l.title, path: `WFS ${ows.host}/${l.name}`, source: 'WFS', features: feats, crs: crs && crs.code !== 4326 ? crs : { code: 4326, def: 'EPSG:4326', label: labelForEpsg(4326), how: 'WFS (srsName)' } });
+        if (feats.length >= max) log('warn', `${l.title}: limite de ${nf0.format(max)} feições atingido — pode haver mais. ${bb ? 'Reduza o buffer ou aumente o limite.' : 'Selecione o terreno para baixar só o entorno.'}`);
+        ok++;
+      } catch (e) { log('err', `${l.title} (WFS): ${e.message}`); }
+      prog.value = (i + 1) / sel.length; await tick();
+    }
+  } finally {
+    prog.hidden = true; state.busy = false;
+    renderAll(); setBusyUI(); renderOwsList();
+    if (zoneSource() && (!state.link || !state.layers.some(x => x.path === state.link.layerPath))) autoLink();
+    renderParams(); analyze();
+  }
+  const msg = `${ok} de ${sel.length} camada(s) carregada(s) do servidor${bb ? ' (entorno do terreno)' : ''}.`;
+  log(ok ? 'ok' : 'warn', msg); status(msg); $('#ows-info').textContent = msg;
+}
+/* WMS no mapa — EXPERIMENTAL (assinatura de addTempLayer não confirmada no Giraffe) */
+function wmsTileTemplate(names, viaProxy) {
+  const u = owsUrl({ service: 'WMS', version: '1.1.1', request: 'GetMap', layers: names.join(','), styles: '', format: 'image/png', transparent: 'true', srs: 'EPSG:3857', width: '256', height: '256' }) + '&bbox={bbox-epsg-3857}';
+  return viaProxy && owsProxy() ? `${owsProxy()}/${u}` : u;
+}
+async function owsShowWms() {
+  const sel = ows.layers.filter(l => l.checked && l.wms); if (!sel.length) return;
+  const names = sel.map(l => l.name);
+  // testa um tile direto; se CORS bloquear, usa o Worker em modo caminho
+  let viaProxy = !!owsCfg.forceProxy;
+  if (!viaProxy) {
+    const c = state.terrainInfo ? state.terrainInfo.c : sel[0].bbox ? [(sel[0].bbox[0] + sel[0].bbox[2]) / 2, (sel[0].bbox[1] + sel[0].bbox[3]) / 2] : [-46.6, -23.5];
+    const [x, y] = _merc(c[0], c[1]);
+    const test = wmsTileTemplate(names, false).replace('{bbox-epsg-3857}', [x - 300, y - 300, x + 300, y + 300].join(','));
+    try { const r = await fetch(test, { signal: AbortSignal.timeout(15000) }); if (!r.ok) throw new Error('HTTP ' + r.status); }
+    catch (e) { viaProxy = !!owsProxy(); log('warn', `Imagem WMS direta bloqueada (${e.message})${viaProxy ? ' — usando o proxy (modo caminho).' : ' e sem proxy configurado.'}`); }
+  }
+  const tiles = wmsTileTemplate(names, viaProxy);
+  const name = `WMS · ${sel.length === 1 ? sel[0].title : sel.length + ' camadas'} (${ows.host})`;
+  try {
+    const g = await sdk();
+    await g.rpc.invoke('addTempLayer', [name, { type: 'raster', tiles: [tiles], tileSize: 256 }, { type: 'raster', paint: { 'raster-opacity': 0.8 } }]);
+    state.tempLayers.add(name);
+    log('ok', `WMS adicionado ao mapa como camada temporária "${name}" (experimental — confira se a imagem aparece).`);
+    status('Camada WMS adicionada ao mapa.');
+  } catch (e) {
+    log('err', `WMS no mapa: ${e.message}. Alternativa: use "Copiar URL" e adicione a camada WMS pelo menu de camadas do Giraffe.`);
+    status('WMS no mapa falhou — veja o Log.');
+  }
+}
+async function owsCopyWms() {
+  const sel = ows.layers.filter(l => l.checked && l.wms); if (!sel.length) return;
+  const url = wmsTileTemplate(sel.map(l => l.name), !!owsCfg.forceProxy);
+  try { await navigator.clipboard.writeText(url); status('URL WMS copiada.'); log('info', `URL WMS copiada: ${url}`); }
+  catch (e) { log('info', `URL WMS: ${url}`); status('Não foi possível copiar — a URL está no Log.'); }
+}
+/* ---------------- UI ---------------- */
+$$('#src-seg button').forEach(b => b.onclick = () => {
+  $$('#src-seg button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  $('#src-files').hidden = b.dataset.src !== 'files'; $('#src-ows').hidden = b.dataset.src !== 'ows';
+});
+$('#ows-proxy').value = owsCfg.proxy || '';
+$('#ows-force-proxy').checked = !!owsCfg.forceProxy;
+$('#ows-proxy').addEventListener('change', e => { owsCfg.proxy = e.target.value.trim(); saveOwsCfg(); log('info', owsCfg.proxy ? `Proxy CORS: ${owsCfg.proxy}` : 'Proxy CORS removido.'); });
+$('#ows-force-proxy').addEventListener('change', e => { owsCfg.forceProxy = e.target.checked; saveOwsCfg(); });
+$('#btn-ows-connect').onclick = owsConnect;
+$('#ows-url').addEventListener('keydown', e => { if (e.key === 'Enter') owsConnect(); });
+$('#ows-search').addEventListener('input', e => { ows.search = e.target.value; renderOwsList(); });
+$('#ows-list').addEventListener('change', e => { const i = e.target.dataset.ows; if (i == null) return; ows.layers[+i].checked = e.target.checked; renderOwsList(); });
+$('#btn-ows-load').onclick = owsLoadVectors;
+$('#btn-ows-wms').onclick = owsShowWms;
+$('#btn-ows-copy').onclick = owsCopyWms;
+$('#btn-ows-test').onclick = async () => {
+  const p = owsProxy(); if (!p) { $('#ows-proxy-st').textContent = 'Informe a URL do Worker.'; return; }
+  const target = ows.base ? owsUrl({ service: 'WMS', version: '1.3.0', request: 'GetCapabilities' }) : 'https://wms.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wms?service=WMS&version=1.3.0&request=GetCapabilities';
+  $('#ows-proxy-st').textContent = 'Testando…';
+  try { const r = await fetch(`${p}?url=${encodeURIComponent(target)}`, { signal: AbortSignal.timeout(20000) }); $('#ows-proxy-st').textContent = r.ok ? `Proxy OK (HTTP ${r.status}) para ${new URL(target).host}.` : `Proxy respondeu HTTP ${r.status} para ${new URL(target).host}${r.status === 403 ? ' — domínio não autorizado no Worker' : ''}.`; }
+  catch (e) { $('#ows-proxy-st').textContent = `Falhou: ${e.message}`; }
+};
+renderOwsRecent();
 
 /* =====================================================================
    INICIALIZAÇÃO
