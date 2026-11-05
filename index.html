@@ -277,8 +277,31 @@ details.ows-proxy[open]{padding-bottom:12px}
 <main>
   <!-- ================= IMPORTAR DADOS ================= -->
   <section class="panel" id="panel-imp" role="tabpanel" aria-labelledby="tab-imp">
+    <section class="section" aria-labelledby="h-terrain">
+      <h2 id="h-terrain"><span class="step" aria-hidden="true">1</span>Terreno e buffer</h2>
+      <button class="btn block" id="btn-pick"><span data-icon="target"></span>Selecionar terreno no mapa</button>
+      <dl class="terrain-out" id="terrain-out" hidden aria-live="polite">
+        <dt>Área</dt><dd id="t-area">—</dd>
+        <dt>Centroide</dt><dd id="t-cent">—</dd>
+        <dt>Fuso UTM</dt><dd id="t-utm">—</dd>
+      </dl>
+      <div class="buffer-row" style="margin-top:12px">
+        <div class="field" style="margin:0">
+          <label for="in-buffer">Buffer (m)</label>
+          <input type="number" id="in-buffer" min="0" max="5000" step="10" value="300" inputmode="numeric">
+        </div>
+        <div class="seg" role="group" aria-label="Buffers rápidos" id="buffer-quick">
+          <button data-m="100" aria-pressed="false">100</button>
+          <button data-m="300" aria-pressed="true">300</button>
+          <button data-m="500" aria-pressed="false">500</button>
+          <button data-m="1000" aria-pressed="false">1000</button>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="chk-showbuf" checked>Mostrar buffer no mapa</label>
+    </section>
+
     <section class="section" aria-labelledby="h-files">
-      <h2 id="h-files"><span class="step" aria-hidden="true">1</span>Dados do município</h2>
+      <h2 id="h-files"><span class="step" aria-hidden="true">2</span>Dados do município</h2>
       <div class="seg" role="group" aria-label="Origem dos dados" id="src-seg" style="margin-bottom:12px">
         <button data-src="files" aria-pressed="true">Arquivos</button>
         <button data-src="ows" aria-pressed="false">Servidor WMS/WFS</button>
@@ -315,13 +338,17 @@ details.ows-proxy[open]{padding-bottom:12px}
           <input type="search" id="ows-search" placeholder="Filtrar camadas do servidor">
           <ul class="layers" id="ows-list" aria-label="Camadas do servidor" style="margin-top:8px;max-height:320px;overflow-y:auto"></ul>
           <p class="info" id="ows-sel-info" aria-live="polite"></p>
-          <div class="field" style="margin-top:8px"><label for="ows-max">Máximo de feições por camada</label><input type="number" id="ows-max" value="5000" min="10" max="50000" step="500" inputmode="numeric"></div>
-          <button class="btn primary block" id="btn-ows-load" disabled><span data-icon="download"></span>Carregar vetores (WFS)</button>
+          <div class="row2" style="margin-top:8px">
+            <div class="field"><label for="ows-mode">Inserir no Giraffe como</label><select id="ows-mode"><option value="perm">Permanente</option><option value="temp">Temporária</option><option value="raw">Editável</option></select></div>
+            <div class="field"><label for="ows-max">Máx. feições por camada</label><input type="number" id="ows-max" value="5000" min="10" max="50000" step="500" inputmode="numeric"></div>
+          </div>
+          <p class="info warn" id="ows-need-terrain" hidden>Selecione o terreno (passo 1) para importar.</p>
+          <button class="btn primary block" id="btn-ows-load" disabled><span data-icon="layers"></span>Importar selecionadas</button>
           <div class="btn-grid">
             <button class="btn" id="btn-ows-wms" disabled><span data-icon="map"></span>Ver no mapa</button>
             <button class="btn" id="btn-ows-copy" disabled><span data-icon="copy"></span>Copiar URL</button>
           </div>
-          <p class="hint" style="margin-top:8px">Vetores entram na lista de camadas e no relatório como os arquivos. Com o terreno selecionado, baixa só o entorno do buffer. "Ver no mapa" mostra a imagem WMS (experimental).</p>
+          <p class="hint" style="margin-top:8px">Baixa o entorno do buffer das camadas com vetor (WFS), insere no Giraffe e inclui na análise e no relatório. Camadas só de imagem: use "Ver no mapa" (experimental) ou "Copiar URL".</p>
         </div>
       </div>
       <div class="summary" id="files-summary" hidden aria-live="polite">
@@ -331,29 +358,6 @@ details.ows-proxy[open]{padding-bottom:12px}
       </div>
       <progress id="load-prog" max="1" value="0" hidden aria-label="Progresso da leitura dos arquivos"></progress>
       <button class="btn block danger" id="btn-clear" hidden style="margin-top:12px"><span data-icon="trash"></span>Limpar arquivos carregados</button>
-    </section>
-
-    <section class="section" aria-labelledby="h-terrain">
-      <h2 id="h-terrain"><span class="step" aria-hidden="true">2</span>Terreno e buffer</h2>
-      <button class="btn block" id="btn-pick"><span data-icon="target"></span>Selecionar terreno no mapa</button>
-      <dl class="terrain-out" id="terrain-out" hidden aria-live="polite">
-        <dt>Área</dt><dd id="t-area">—</dd>
-        <dt>Centroide</dt><dd id="t-cent">—</dd>
-        <dt>Fuso UTM</dt><dd id="t-utm">—</dd>
-      </dl>
-      <div class="buffer-row" style="margin-top:12px">
-        <div class="field" style="margin:0">
-          <label for="in-buffer">Buffer (m)</label>
-          <input type="number" id="in-buffer" min="0" max="5000" step="10" value="300" inputmode="numeric">
-        </div>
-        <div class="seg" role="group" aria-label="Buffers rápidos" id="buffer-quick">
-          <button data-m="100" aria-pressed="false">100</button>
-          <button data-m="300" aria-pressed="true">300</button>
-          <button data-m="500" aria-pressed="false">500</button>
-          <button data-m="1000" aria-pressed="false">1000</button>
-        </div>
-      </div>
-      <label class="check"><input type="checkbox" id="chk-showbuf" checked>Mostrar buffer no mapa</label>
     </section>
 
     <section class="section" aria-labelledby="h-layers">
@@ -492,7 +496,7 @@ details.ows-proxy[open]{padding-bottom:12px}
 <footer class="statusbar">
   <div class="status-msg" id="status-msg" role="status" aria-live="polite">Pronto</div>
   <div class="status-cell" id="gi-status" title="Conexão com o Giraffe"><span class="giraffe-dot" id="gi-dot" aria-hidden="true"></span><span id="gi-label">Giraffe</span></div>
-  <div class="status-cell version">Beta - V09 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V10 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
@@ -504,7 +508,7 @@ details.ows-proxy[open]{padding-bottom:12px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* =====================================================================
-   KV Dados Municipais — V09
+   KV Dados Municipais — V10
    Leitura local de Shapefile / GeoJSON / KML / KMZ, reprojeção para
    WGS84, recorte por buffer do terreno e importação no Giraffe.
    Bibliotecas: Turf 6.5.0 (MIT), proj4 2.11.0 (MIT), shpjs 4.0.4 (MIT),
@@ -513,7 +517,7 @@ details.ows-proxy[open]{padding-bottom:12px}
    ===================================================================== */
 (() => {
 'use strict';
-const APP_VERSION = 'V09';
+const APP_VERSION = 'V10';
 const TAG = 'kvloc_';
 const RAW_LIMIT = 3000;          // teto de feições por camada no modo "desenhar no projeto"
 const $ = s => document.querySelector(s);
@@ -1032,6 +1036,7 @@ function setTerrain(t, n = 1) {
   log('ok', `Terreno: ${nf0.format(area)} m² · centroide ${c[1].toFixed(5)}, ${c[0].toFixed(5)}.`);
   updateBuffer();
   renderLayers(); // atualiza sugestão de EPSG nas camadas sem sistema
+  if (typeof renderOwsList === 'function' && ows.layers.length) renderOwsList();
 }
 function updateBuffer() {
   const m = Math.max(0, Math.min(5000, +$('#in-buffer').value || 0));
@@ -1194,6 +1199,7 @@ $$('#mode-seg button').forEach(b => b.onclick = () => {
   state.mode = b.dataset.mode;
   $$('#mode-seg button').forEach(x => x.setAttribute('aria-pressed', x === b));
   $('#mode-hint').textContent = MODE_HINT[state.mode];
+  if ($('#ows-mode')) $('#ows-mode').value = state.mode;
 });
 
 /* =====================================================================
@@ -1222,8 +1228,8 @@ function layerFeaturesForExport(L, styled) {
   }
   return out;
 }
-$('#btn-import').onclick = async () => {
-  const sel = state.layers.filter(l => l.checked && l.crsStatus !== 'unknown');
+$('#btn-import').onclick = () => importToGiraffe(state.layers.filter(l => l.checked && l.crsStatus !== 'unknown'));
+async function importToGiraffe(sel) {
   if (!sel.length || !state.terrain) return;
   state.busy = true; setBusyUI();
   const prog = $('#imp-prog'); prog.hidden = false; prog.value = 0;
@@ -1260,8 +1266,8 @@ $('#btn-import').onclick = async () => {
     log('ok', msg); status(msg); $('#imp-info').textContent = msg;
   } catch (e) {
     log('err', `Importação: ${e.message}`); status('Falha na importação — veja o Log.');
-  } finally { prog.hidden = true; state.busy = false; setBusyUI(); }
-};
+  } finally { prog.hidden = true; state.busy = false; setBusyUI(); if (typeof renderOwsList === 'function') renderOwsList(); }
+}
 $('#btn-remove').onclick = async () => {
   try {
     const n = await deleteByTagPrefix(TAG);
@@ -2914,7 +2920,9 @@ function renderOwsList() {
   }).join('') + (list.length > 400 ? `<li class="empty">+ ${list.length - 400} camada(s) — refine o filtro.</li>` : '') : '<li class="empty">Nenhuma camada corresponde ao filtro.</li>';
   const sel = ows.layers.filter(l => l.checked);
   $('#ows-sel-info').textContent = `${sel.length} selecionada(s) · ${sel.filter(l => l.wfs).length} com vetor`;
-  $('#btn-ows-load').disabled = !sel.some(l => l.wfs) || state.busy;
+  $('#btn-ows-load').disabled = !sel.some(l => l.wfs) || state.busy || !state.terrain;
+  $('#ows-need-terrain').hidden = !!state.terrain;
+  $('#ows-mode').value = state.mode;
   $('#btn-ows-wms').disabled = !sel.some(l => l.wms);
   $('#btn-ows-copy').disabled = !sel.some(l => l.wms);
 }
@@ -2938,6 +2946,7 @@ async function owsLoadVectors() {
   state.busy = true; setBusyUI(); renderOwsList();
   const prog = $('#load-prog'); prog.hidden = false; prog.value = 0;
   let ok = 0;
+  const loadedPaths = [];
   try {
     for (let i = 0; i < sel.length; i++) {
       const l = sel[i];
@@ -2957,6 +2966,7 @@ async function owsLoadVectors() {
         const ref = state.terrainInfo ? state.terrainInfo.c : l.bbox ? [(l.bbox[0] + l.bbox[2]) / 2, (l.bbox[1] + l.bbox[3]) / 2] : null;
         if (needsSwap(feats, ref)) { feats = swapXY(feats); log('info', `${l.title}: eixos lat/lon invertidos pelo servidor — corrigido.`); }
         const crs = crsFromGeoJSON(fc);
+        loadedPaths.push(`WFS ${ows.host}/${l.name}`);
         addLayer({ name: l.title, path: `WFS ${ows.host}/${l.name}`, source: 'WFS', features: feats, crs: crs && crs.code !== 4326 ? crs : { code: 4326, def: 'EPSG:4326', label: labelForEpsg(4326), how: 'WFS (srsName)' } });
         if (feats.length >= max) log('warn', `${l.title}: limite de ${nf0.format(max)} feições atingido — pode haver mais. ${bb ? 'Reduza o buffer ou aumente o limite.' : 'Selecione o terreno para baixar só o entorno.'}`);
         ok++;
@@ -2967,10 +2977,15 @@ async function owsLoadVectors() {
     prog.hidden = true; state.busy = false;
     renderAll(); setBusyUI(); renderOwsList();
     if (zoneSource() && (!state.link || !state.layers.some(x => x.path === state.link.layerPath))) autoLink();
-    renderParams(); analyze();
+    renderParams();
   }
-  const msg = `${ok} de ${sel.length} camada(s) carregada(s) do servidor${bb ? ' (entorno do terreno)' : ''}.`;
+  const msg = `${ok} de ${sel.length} camada(s) baixada(s) do servidor${bb ? ' (entorno do terreno)' : ''}.`;
   log(ok ? 'ok' : 'warn', msg); status(msg); $('#ows-info').textContent = msg;
+  await analyze();                                   // recorta pelo buffer antes de inserir no Giraffe
+  const got = state.layers.filter(L => loadedPaths.includes(L.path) && L.crsStatus !== 'unknown');
+  got.forEach(L => { L.checked = true; });
+  renderLayers();
+  if (got.length && state.terrain) await importToGiraffe(got);
 }
 /* WMS no mapa — EXPERIMENTAL (assinatura de addTempLayer não confirmada no Giraffe) */
 function wmsTileTemplate(names, viaProxy) {
@@ -3022,6 +3037,7 @@ $('#ows-url').addEventListener('keydown', e => { if (e.key === 'Enter') owsConne
 $('#ows-search').addEventListener('input', e => { ows.search = e.target.value; renderOwsList(); });
 $('#ows-list').addEventListener('change', e => { const i = e.target.dataset.ows; if (i == null) return; ows.layers[+i].checked = e.target.checked; renderOwsList(); });
 $('#btn-ows-load').onclick = owsLoadVectors;
+$('#ows-mode').addEventListener('change', e => { const b = $(`#mode-seg button[data-mode="${e.target.value}"]`); if (b) b.click(); });
 $('#btn-ows-wms').onclick = owsShowWms;
 $('#btn-ows-copy').onclick = owsCopyWms;
 $('#btn-ows-test').onclick = async () => {
