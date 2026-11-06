@@ -500,7 +500,7 @@ details.ows-proxy[open]{padding-bottom:12px}
 <footer class="statusbar">
   <div class="status-msg" id="status-msg" role="status" aria-live="polite">Pronto</div>
   <div class="status-cell" id="gi-status" title="Conexão com o Giraffe"><span class="giraffe-dot" id="gi-dot" aria-hidden="true"></span><span id="gi-label">Giraffe</span></div>
-  <div class="status-cell version">Beta - V16 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V17 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
@@ -512,7 +512,7 @@ details.ows-proxy[open]{padding-bottom:12px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* =====================================================================
-   KV Dados Municipais — V16
+   KV Dados Municipais — V17
    Leitura local de Shapefile / GeoJSON / KML / KMZ, reprojeção para
    WGS84, recorte por buffer do terreno e importação no Giraffe.
    Bibliotecas: Turf 6.5.0 (MIT), proj4 2.11.0 (MIT), shpjs 4.0.4 (MIT),
@@ -521,7 +521,7 @@ details.ows-proxy[open]{padding-bottom:12px}
    ===================================================================== */
 (() => {
 'use strict';
-const APP_VERSION = 'V16';
+const APP_VERSION = 'V17';
 const TAG = 'kvloc_';
 const RAW_LIMIT = 3000;          // teto de feições por camada no modo "desenhar no projeto"
 const $ = s => document.querySelector(s);
@@ -2267,7 +2267,7 @@ function renderReport() {
     </table></div>${M.items.length > 12 ? `<div class="report-note">${M.items.filter(x => !x.L.inBuf.length).length} camada(s) analisada(s) sem incidência — listadas no resumo final do PDF.</div>` : ''}<div class="report-note">INCIDE NO TERRENO = a geometria sobrepõe o terreno (aplicável à legislação) · nas proximidades = encontrada no buffer de ${nf0.format(M.bufferM)} m, sem sobreposição.</div></div>`;
   for (const x of inc) {
     const L = x.L, shown = L.inTer.slice(0, 8), fields = x.fields.slice(0, 12);
-    h += `<div class="report-section"><div class="report-section-title"><i style="background:${L.color}" aria-hidden="true"></i>${esc(L.name)} — incide no terreno</div><div class="rtable-wrap"><table class="report-table">
+    h += `<div class="report-section" data-pdf="detalhe"><div class="report-section-title"><i style="background:${L.color}" aria-hidden="true"></i>${esc(L.name)} — incide no terreno</div><div class="rtable-wrap"><table class="report-table">
       ${shown.map((fi, j) => {
         const p = L.features[fi].properties || {}, pct = L.cover[j];
         return `<tr class="grp"><td colspan="2">Feição ${j + 1} de ${L.inTer.length}${pct != null ? ` — cobre ${nf1.format(pct)}% do terreno` : ''}</td></tr>`
@@ -2276,7 +2276,7 @@ function renderReport() {
       </table></div><div class="report-note">${L.inTer.length > shown.length ? `+ ${L.inTer.length - shown.length} feição(ões) não exibida(s) · ` : ''}Arquivo: ${esc(L.path)} · sistema original: ${esc(L.crs.label)}</div></div>`;
   }
   if (prox.length) {
-    h += `<div class="report-section"><div class="report-section-title">Nas proximidades — buffer de ${nf0.format(M.bufferM)} m</div><div class="rtable-wrap"><table class="report-table">
+    h += `<div class="report-section" data-pdf="detalhe"><div class="report-section-title">Nas proximidades — buffer de ${nf0.format(M.bufferM)} m</div><div class="rtable-wrap"><table class="report-table">
       <tr class="th"><td>Camada</td><td class="n">Feições</td><td class="n">Mais próxima</td><td>Referência</td></tr>
       ${prox.map(x => { const n = x.proxD[0]; return `<tr><td>${esc(x.L.name)}</td><td class="n">${x.L.inBuf.length}</td><td class="n">${n && n.d != null ? '~' + nf0.format(n.d) + ' m' : '—'}</td><td>${n ? esc(featLine(x.L, x.L.features[n.i], x.fields)) : '—'}</td></tr>`; }).join('')}
       </table></div><div class="report-note">Distâncias aproximadas, medidas a partir do centroide do terreno.</div></div>`;
@@ -2379,7 +2379,7 @@ function _pageFooters(pdf) {
 }
 
 /* Parte 1 — relatório visual convertido em texto (mesma lógica do GeoSampa) */
-function _renderVisualReportAsText(pdf, contentEl, generatedAt) {
+function _renderVisualReportAsText(pdf, contentEl, generatedAt, skipDetail) {
   const { W: pageW, H: pageH, MX: marginX, MT: marginTop, MB: marginBottom } = PG;
   const contentW = pageW - marginX * 2;
   let cursorY = marginTop;
@@ -2446,6 +2446,7 @@ function _renderVisualReportAsText(pdf, contentEl, generatedAt) {
       cursorY += 3; continue;
     }
     if (cls.contains('report-alert')) { drawAlertBox(block.textContent.trim()); continue; }
+    if (skipDetail && block.dataset.pdf === 'detalhe') continue;   // detalhe por camada já sai nos cards com mapa
     if (cls.contains('report-section')) {
       const title = block.querySelector('.report-section-title');
       if (title) {
@@ -2713,8 +2714,8 @@ $('#btn-pdf').onclick = async () => {
     const now = email ? `${dataHora} · ${email}` : dataHora;
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    _renderVisualReportAsText(pdf, $('#reportContent'), now);
-    const withHit = M.items.filter(x => x.L.inBuf.length);
+    const withHit = fromSaved ? [] : M.items.filter(x => x.L.inBuf.length);
+    _renderVisualReportAsText(pdf, $('#reportContent'), now, withHit.length > 0);
     const items = [];
     for (let i = 0; i < withHit.length; i++) {
       items.push(await buildPdfItem(withHit[i], M));
