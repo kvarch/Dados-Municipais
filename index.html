@@ -227,6 +227,10 @@ table.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
 .pnotes dt{font-weight:600;color:var(--md-sys-color-primary)}
 .pnotes dd{margin:0;color:var(--md-sys-color-on-surface-variant)}
 .info.warn{color:var(--md-sys-color-error)}
+.docs.leg li{gap:8px;padding:0 0 0 4px}
+.docs.leg .lg-n{flex:1;min-width:0;display:grid}
+.docs.leg .lg-n b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--md-sys-color-on-surface)}
+.docs.leg .lg-n small{font-size:11.5px;color:var(--md-sys-color-on-surface-variant)}
 details.ows-proxy{margin-top:8px;border:1px solid var(--md-sys-color-outline-variant);padding:0 12px}
 details.ows-proxy summary{min-height:48px;display:flex;align-items:center;cursor:pointer;font-size:12.5px;font-weight:500}
 details.ows-proxy[open]{padding-bottom:12px}
@@ -314,14 +318,14 @@ details.ows-proxy[open]{padding-bottom:12px}
       <div class="drop" id="drop" aria-describedby="drop-desc">
         <span data-icon="upload"></span>
         <strong>Arraste uma pasta ou arquivos aqui</strong>
-        <span id="drop-desc">Shapefile (.shp + .dbf + .prj, soltos ou em .zip), GeoJSON, KML e KMZ. PDFs, DOCX e planilhas são listados como documentos.</span>
+        <span id="drop-desc">Shapefile (.shp + .dbf + .prj, soltos ou em .zip), GeoJSON, KML e KMZ. Planilhas e documentos da legislação vão na aba Parâmetros.</span>
       </div>
       <div class="btn-grid">
         <button class="btn primary" id="btn-folder"><span data-icon="folderOpen"></span>Pasta</button>
         <button class="btn" id="btn-files"><span data-icon="file"></span>Arquivos</button>
       </div>
       <input type="file" id="in-folder" webkitdirectory directory multiple hidden aria-hidden="true">
-      <input type="file" id="in-files" multiple hidden aria-hidden="true" accept=".shp,.dbf,.prj,.cpg,.shx,.zip,.geojson,.json,.kml,.kmz,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ods,.odt,.txt,.md">
+      <input type="file" id="in-files" multiple hidden aria-hidden="true" accept=".shp,.dbf,.prj,.cpg,.shx,.zip,.geojson,.json,.kml,.kmz">
         <div id="files-layers-wrap" hidden style="margin-top:16px">
           <div class="filters">
             <label class="sr-only" for="in-search">Filtrar camadas pelo nome</label>
@@ -368,13 +372,12 @@ details.ows-proxy[open]{padding-bottom:12px}
           <p class="hint" style="margin-top:8px">Camadas só de imagem (sem a etiqueta VETOR) não podem ser importadas: use "Ver no mapa" (experimental) ou "Copiar URL".</p>
         </div>
       </div>
-      <div class="summary" id="files-summary" hidden aria-live="polite">
+      <div class="summary" id="files-summary" hidden aria-live="polite" style="grid-template-columns:repeat(2,1fr)">
         <div><b id="sum-layers">0</b><span>camadas</span></div>
         <div><b id="sum-feats">0</b><span>feições</span></div>
-        <div><b id="sum-docs">0</b><span>documentos</span></div>
       </div>
       <progress id="load-prog" max="1" value="0" hidden aria-label="Progresso da leitura dos arquivos"></progress>
-      <button class="btn block danger" id="btn-clear" hidden style="margin-top:12px"><span data-icon="trash"></span>Limpar arquivos carregados</button>
+      <button class="btn block danger" id="btn-clear" hidden style="margin-top:12px"><span data-icon="trash"></span>Limpar camadas carregadas</button>
     </section>
 
     <section class="section" aria-labelledby="h-import">
@@ -398,21 +401,17 @@ details.ows-proxy[open]{padding-bottom:12px}
       <p class="info" id="imp-info" aria-live="polite"></p>
     </section>
 
-    <section class="section" aria-labelledby="h-docs" id="docs-section" hidden>
-      <h2 id="h-docs"><span data-icon="scale"></span>Legislação e documentos</h2>
-      <p class="hint">Reconhecidos na pasta. Serão vinculados ao relatório pelo Pacote Municipal nas próximas versões.</p>
-      <ul class="docs" id="doc-list"></ul>
-    </section>
   </section>
 
   <!-- ================= PARÂMETROS (Pacote Municipal) ================= -->
   <section class="panel" id="panel-par" role="tabpanel" aria-labelledby="tab-par" hidden>
     <section class="section" aria-labelledby="h-par1">
-      <h2 id="h-par1"><span class="step" aria-hidden="true">1</span>Planilha de parâmetros</h2>
-      <p class="hint">Planilha da legislação (.xlsx, .xls, .ods ou .csv) com uma zona por linha e um parâmetro por coluna — ou o inverso. Planilhas da pasta do município entram aqui automaticamente.</p>
-      <div class="field"><label for="par-file">Planilha e aba</label><select id="par-file" disabled><option value="">Nenhuma planilha carregada</option></select></div>
-      <button class="btn block" id="btn-par-open"><span data-icon="sheet"></span>Escolher planilha</button>
-      <input type="file" id="in-par" hidden aria-hidden="true" accept=".xlsx,.xls,.ods,.csv">
+      <h2 id="h-par1"><span class="step" aria-hidden="true">1</span>Legislação</h2>
+      <p class="hint">Planilhas de índices e de usos (.xlsx, .xls, .ods, .csv) e documentos de referência da lei (PDF, DOCX). Só o que estiver nesta lista entra no relatório — retire o que não quiser usar.</p>
+      <button class="btn block primary" id="btn-par-open"><span data-icon="upload"></span>Adicionar planilha ou documento</button>
+      <input type="file" id="in-par" hidden aria-hidden="true" multiple accept=".xlsx,.xls,.ods,.csv,.pdf,.doc,.docx,.odt,.txt">
+      <ul class="docs leg" id="leg-list" aria-label="Legislação adicionada" style="margin-top:12px"></ul>
+      <div class="field" style="margin-top:12px"><label for="par-file">Planilha e aba em uso</label><select id="par-file" disabled><option value="">Nenhuma planilha carregada</option></select></div>
       <p class="info" id="pack-status" aria-live="polite">A sessão é salva automaticamente.</p>
       <dl class="slots" id="par-slots" hidden aria-live="polite">
         <dt>Índices urbanísticos</dt><dd id="slot-idx">—</dd>
@@ -501,7 +500,7 @@ details.ows-proxy[open]{padding-bottom:12px}
 <footer class="statusbar">
   <div class="status-msg" id="status-msg" role="status" aria-live="polite">Pronto</div>
   <div class="status-cell" id="gi-status" title="Conexão com o Giraffe"><span class="giraffe-dot" id="gi-dot" aria-hidden="true"></span><span id="gi-label">Giraffe</span></div>
-  <div class="status-cell version">Beta - V15 · © 2026 Königsberger Vannucchi</div>
+  <div class="status-cell version">Beta - V16 · © 2026 Königsberger Vannucchi</div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
@@ -513,7 +512,7 @@ details.ows-proxy[open]{padding-bottom:12px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* =====================================================================
-   KV Dados Municipais — V15
+   KV Dados Municipais — V16
    Leitura local de Shapefile / GeoJSON / KML / KMZ, reprojeção para
    WGS84, recorte por buffer do terreno e importação no Giraffe.
    Bibliotecas: Turf 6.5.0 (MIT), proj4 2.11.0 (MIT), shpjs 4.0.4 (MIT),
@@ -522,7 +521,7 @@ details.ows-proxy[open]{padding-bottom:12px}
    ===================================================================== */
 (() => {
 'use strict';
-const APP_VERSION = 'V15';
+const APP_VERSION = 'V16';
 const TAG = 'kvloc_';
 const RAW_LIMIT = 3000;          // teto de feições por camada no modo "desenhar no projeto"
 const $ = s => document.querySelector(s);
@@ -823,10 +822,9 @@ async function ingest(items) {
       status(`Lendo camadas… ${done}/${jobs.length}`);
       await tick();
     }
-    for (const d of docs) if (!state.docs.some(x => x.path === d.path)) state.docs.push(d);
-    await loadWorkbooks();
-    if (state.param && !state.param.P.error && (!state.link || !allLayers().some(l => l.path === state.link.layerPath))) autoLink();
-    log('ok', `Leitura concluída em ${((performance.now() - t0) / 1000).toFixed(1)}s: ${added} camada(s), ${docs.length} documento(s)${ignored ? `, ${ignored} arquivo(s) auxiliar(es) ignorado(s)` : ''}.`);
+    if (docs.length) log('info', `${docs.length} planilha(s)/documento(s) na pasta não foram carregados (${docs.slice(0, 4).map(d => d.name).join(', ')}${docs.length > 4 ? '…' : ''}). A legislação é adicionada na aba Parâmetros.`);
+    if (zoneSource() && (!state.link || !allLayers().some(l => l.path === state.link.layerPath))) autoLink();
+    log('ok', `Leitura concluída em ${((performance.now() - t0) / 1000).toFixed(1)}s: ${added} camada(s)${ignored ? `, ${ignored} arquivo(s) auxiliar(es) ignorado(s)` : ''}.`);
     status(`${state.layers.length} camada(s) carregada(s).`);
   } finally {
     prog.hidden = true; state.busy = false;
@@ -955,10 +953,10 @@ drop.addEventListener('drop', async e => {
 document.addEventListener('dragover', e => e.preventDefault());
 document.addEventListener('drop', e => { if (!drop.contains(e.target)) e.preventDefault(); });
 $('#btn-clear').onclick = () => {
-  state.layers = []; state.docs = []; layerSeq = 0; state.sheets = []; state.param = null; state.link = null; state.uses = null;
-  renderParamPicker(); renderParams();
-  log('info', 'Arquivos carregados foram limpos.'); status('Arquivos limpos.');
-  schedulePackSave('arquivos limpos');
+  state.layers = []; layerSeq = 0;
+  renderParams();
+  log('info', 'Camadas carregadas foram limpas (a legislação da aba Parâmetros foi mantida).'); status('Camadas limpas.');
+  schedulePackSave('camadas limpas');
   renderAll();
 };
 
@@ -1135,15 +1133,38 @@ async function analyze() {
    ===================================================================== */
 function renderAll() { renderLayers(); renderDocs(); renderSummary(); }
 function renderSummary() {
-  const has = state.layers.length || state.docs.length;
+  const has = state.layers.length;
   $('#files-summary').hidden = !has; $('#btn-clear').hidden = !has;
   $('#sum-layers').textContent = nf0.format(state.layers.length);
   $('#sum-feats').textContent = nf0.format(state.layers.reduce((s, l) => s + (l.features.length || (l.raw ? l.raw.length : 0)), 0));
-  $('#sum-docs').textContent = nf0.format(state.docs.length);
+}
+function docUse(d) {
+  const u = [];
+  if (state.param && state.sheets.some(s => s.id === state.param.sheetId && s.doc && s.doc.path === d.path)) u.push('índices');
+  if (state.uses && state.sheets.some(s => s.id === state.uses.sheetId && s.doc && s.doc.path === d.path)) u.push('usos');
+  if (state.param && state.param.P && state.param.P.legend && state.sheets.some(s => s.doc && s.doc.path === d.path && s.id === state.param.sheetId)) {}
+  return u;
 }
 function renderDocs() {
-  $('#docs-section').hidden = !state.docs.length;
-  $('#doc-list').innerHTML = state.docs.map(d => `<li>${svgIcon(d.kind === 'Planilha' || d.kind === 'Tabela' ? 'sheet' : 'fileText')}<span title="${esc(d.path)}">${esc(d.name)}</span><span class="badge" style="flex:none">${esc(d.kind)}</span></li>`).join('');
+  const ul = $('#leg-list'); if (!ul) return;
+  ul.innerHTML = state.docs.length ? state.docs.map((d, i) => {
+    const u = docUse(d);
+    return `<li>${svgIcon(d.kind === 'Planilha' || d.kind === 'Tabela' ? 'sheet' : 'fileText')}
+      <span class="lg-n"><b title="${esc(d.path)}">${esc(d.name)}</b><small>${esc(d.kind)}${d.restored ? ' · salva no projeto' : ''}${u.length ? ' · <span class="ok">em uso: ' + u.join(' e ') + '</span>' : (d.kind === 'Planilha' || d.kind === 'Tabela') ? ' · não usada' : ' · referência no relatório'}</small></span>
+      <button class="icon-btn" data-doc-rm="${i}" aria-label="Retirar ${esc(d.name)}" title="Retirar"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></li>`;
+  }).join('') : '<li class="empty">Nenhuma planilha ou documento adicionado.</li>';
+}
+function removeDoc(path) {
+  const d = state.docs.find(x => x.path === path); if (!d) return;
+  const ids = new Set(state.sheets.filter(s => s.doc && s.doc.path === path).map(s => s.id));
+  state.docs = state.docs.filter(x => x.path !== path);
+  state.sheets = state.sheets.filter(s => !ids.has(s.id));
+  if (state.param && ids.has(state.param.sheetId)) state.param = null;
+  if (state.uses && ids.has(state.uses.sheetId)) state.uses = null;
+  log('info', `"${d.name}" retirado da legislação do relatório.`);
+  renderParamPicker(); renderParams(); renderDocs();
+  if (state.report || state.savedReport) renderReport();
+  schedulePackSave('legislação alterada');
 }
 function renderLayers() {
   const ul = $('#layer-list');
@@ -1654,6 +1675,7 @@ function linkStats() {
   return { L, n: vals.size, hit: vals.size - miss.length, miss };
 }
 function renderParams() {
+  renderDocs();
   const p = state.param, P = p && p.P;
   const ok = P && !P.error, us = state.uses;
   $('#par-cfg').hidden = !p; $('#par-cols-sec').hidden = !ok; $('#par-link-sec').hidden = !(ok || us); $('#par-zones-sec').hidden = !ok;
@@ -1696,15 +1718,28 @@ function renderLinkUI() {
 $('#par-file').onchange = e => { const s = state.sheets.find(x => x.id === e.target.value); if (!s) return; if (s.kind === 'usos') selectUses(s.id); else selectSheet(s.id); };
 $('#btn-par-open').onclick = () => $('#in-par').click();
 $('#in-par').addEventListener('change', async e => {
-  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-  const d = { path: f.name, name: f.name, ext: extOf(f.name), kind: DOC_EXT[extOf(f.name)] || 'Planilha', size: f.size, read: t => t === 'text' ? f.text() : f.arrayBuffer() };
-  state.docs = state.docs.filter(x => x.path !== d.path); state.sheets = state.sheets.filter(s => s.doc.path !== d.path);
-  state.docs.push(d); renderDocs(); renderSummary();
-  const before = state.sheets.length;
-  await loadWorkbooks();
-  const nw = state.sheets.slice(before).find(s => s.kind !== 'vazia');
-  if (nw) { if (nw.kind === 'usos') selectUses(nw.id); else selectSheet(nw.id); }
+  const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
+  for (const f of files) {
+    const ext = extOf(f.name);
+    if (!DOC_EXT[ext]) { log('warn', `${f.name}: formato não aceito como legislação.`); continue; }
+    const d = { path: f.name, name: f.name, ext, kind: DOC_EXT[ext], size: f.size, read: t => t === 'text' ? f.text() : f.arrayBuffer() };
+    state.docs = state.docs.filter(x => x.path !== d.path); state.sheets = state.sheets.filter(s => !s.doc || s.doc.path !== d.path);
+    state.docs.push(d);
+    const before = state.sheets.length;
+    await loadWorkbooks();
+    // a planilha que o usuário acabou de adicionar passa a ser a usada (índices ou usos)
+    const novas = state.sheets.slice(before).filter(s => s.kind !== 'vazia');
+    const idx = novas.find(s => s.kind === 'indices' && (() => { const a = sheetMatrix(s.wb.Sheets[s.name]); return Math.max(bestHeader(a).score, bestHeader(transpose(a)).score) >= 3; })());
+    const uso = novas.find(s => s.kind === 'usos');
+    if (uso) selectUses(uso.id);
+    if (idx) selectSheet(idx.id);
+    if (!idx && !uso && (ext === 'xlsx' || ext === 'xls' || ext === 'ods' || ext === 'csv')) log('warn', `${f.name}: nenhuma aba reconhecida como índices ou usos — escolha a aba em "Planilha e aba em uso".`);
+    log('ok', `Legislação adicionada: ${f.name}.`);
+  }
+  renderDocs(); renderParams(); schedulePackSave('legislação adicionada');
+  if (state.report) renderReport();
 });
+$('#leg-list').addEventListener('click', e => { const b = e.target.closest('[data-doc-rm]'); if (!b) return; const d = state.docs[+b.dataset.docRm]; if (d) removeDoc(d.path); });
 $('#par-header').addEventListener('change', e => { if (!state.param) return; const cfg = { ...state.param.cfg, headerRow: Math.max(0, (+e.target.value || 1) - 1), roles: null }; selectSheet(state.param.sheetId, cfg); });
 $('#par-orient').addEventListener('change', e => { if (!state.param) return; const cfg = { ...state.param.cfg, orient: e.target.value, headerRow: null, roles: null }; selectSheet(state.param.sheetId, cfg); });
 $('#par-cols').addEventListener('change', e => {
@@ -1948,7 +1983,7 @@ function buildReportModel() {
     const proxD = prox.slice(0, 30).map(i => ({ i, d: distFromTerrain(L.features[i]) })).sort((a, b) => (a.d ?? 1e9) - (b.d ?? 1e9));
     return { L, fields, prox, proxD, sit: situacao(L), grupo: groupOf(L) };
   }).sort((a, b) => (b.L.inTer.length > 0) - (a.L.inTer.length > 0) || (b.L.inBuf.length > 0) - (a.L.inBuf.length > 0) || a.L.name.localeCompare(b.L.name));
-  return { t, bufferM: state.bufferM, items, pending, docs: state.docs.slice(), at: new Date(), zoning: zoningForTerrain() };
+  return { t, bufferM: state.bufferM, items, pending, docs: state.docs.filter(d => !['Planilha', 'Tabela'].includes(d.kind) || docUse(d).length), at: new Date(), zoning: zoningForTerrain() };
 }
 
 /* ---------------- Uso pretendido (tabelas zona × categoria) ---------------- */
@@ -2790,6 +2825,7 @@ function buildSession(withFeats) {
     uses: state.uses ? { sheetId: state.uses.sheetId } : null,
     link: state.link, useSel: state.useSel, pd: state.pd, report: state.savedReport,
     terrain: state.terrain ? r7(state.terrain.geometry) : null, bufferM: state.bufferM, showBuf: $('#chk-showbuf').checked, mode: state.mode,
+    refDocs: state.docs.filter(d => !['Planilha', 'Tabela'].includes(d.kind)).map(d => ({ path: d.path, name: d.name, ext: d.ext, kind: d.kind })),
     server: { url: $('#ows-url').value.trim(), proxy: owsCfg.proxy || '', forceProxy: !!owsCfg.forceProxy },
     layers
   };
@@ -2883,6 +2919,7 @@ async function applySession(S, from) {
       if (!state.docs.some(d => d.path === path)) state.docs.push({ path, name, ext: extOf(name), kind: 'Planilha', size: 0, _wbDone: true, restored: true, read: async () => { throw new Error('planilha restaurada'); } });
       wb.SheetNames.forEach(sn => { const id = path + '#' + sn, sv = S.sheets.find(x => x.id === id); const ex = state.sheets.findIndex(x => x.id === id); const rec = { id, doc: state.docs.find(d => d.path === path), name: sn, wb, kind: sv && sv.kind }; if (ex >= 0) state.sheets[ex] = rec; else state.sheets.push(rec); });
     });
+    (S.refDocs || []).forEach(d => { if (!state.docs.some(x => x.path === d.path)) state.docs.push({ ...d, size: 0, restored: true, read: async () => { throw new Error('documento de referência restaurado'); } }); });
     if (S.uses && state.sheets.some(s => s.id === S.uses.sheetId)) selectUses(S.uses.sheetId);
     if (S.param && state.sheets.some(s => s.id === S.param.sheetId)) selectSheet(S.param.sheetId, { ...S.param.cfg });
     state.useSel = S.useSel || ''; state.pd = S.pd || 3; $('#in-pd').value = state.pd;
